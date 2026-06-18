@@ -13,6 +13,17 @@
   apply glyph → lay tile → **triad scores** with a readout (coherence / interdisciplinary /
   counterpoint) → **End turn** → 2-player **hot-seat handoff** (hands hidden behind a curtain) →
   **Conclude** → results + winner.
+- **PRINT SHOP / editor (2026-06-18):** `src/engine/content.ts` is a homebrew overlay (persisted,
+  `gbg_homebrew_v1`) merged over base data; the engine/relations read through `getCard`/`getGlyph`, so
+  edits go live. UI: a **✎ pen** to edit any card (name/text/glyph-attributions/correspondences) or
+  glyph (meaning/gameUse), **⧉ copy** on explanations + the relations readout, and **✎ New card** to
+  forge a card straight into the active hand. Player cards carry `sourceRef: 'player (Print Shop)'`.
+  Verified live (edited a card body; forged a card → hand). `resetHomebrew()` exists but isn't surfaced.
+- **VISION AUDIT (2026-06-18):** [docs/VISION_AUDIT.md](docs/VISION_AUDIT.md) — narrative-designer
+  audit vs the user's vision + Hesse + **sourced Leary research** (Castalia Foundation; the "Interior
+  Journey" essay; Leary's cybernetic "glass beads strung in combinations"). Spine realized; top gaps =
+  **named historical-figure workers**, a real **location layer**, deeper **DB ingestion**, and a
+  Hesse-faithful **contemplative/non-scored mode**.
 - **MODEL PIVOT (2026-06-18):** glyphs are now **bead attributes** in 4 banks (Planets/Metals,
   Zodiac/Processes, Principles, Elements); **relations are derived programmatically** by the system
   comparing adjacent beads' attributes against a grounded corpus (`src/engine/relations.ts` —

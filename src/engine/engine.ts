@@ -1,6 +1,5 @@
 import type { Bead, CellId, GameState, Move, Player } from './types';
-import { CARDS, SEED_DECK } from '../data/seedDeck';
-import { GLYPHS } from './glyphBank';
+import { getCard, getGlyph, allCardIds } from './content';
 import { OCC_MAP } from './occupations';
 import { attributesOf, computeRelations } from './relations';
 
@@ -23,7 +22,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function createGame(playerCount = 1, size = 5, handSize = 5): GameState {
-  const ids = SEED_DECK.map((c) => c.id);
+  const ids = allCardIds();
   const deck = shuffle([...ids, ...ids, ...ids]);
   const players: Player[] = Array.from({ length: Math.max(1, Math.min(2, playerCount)) }, (_, i) => ({
     id: i, name: `Player ${i + 1}`, hand: [], score: 0,
@@ -94,7 +93,7 @@ export function applyMove(state: GameState, move: Move): GameState {
       if (state.phase !== 'play') return state;
       const player = state.players[state.active];
       if (!player.hand.includes(move.cardId) || occupied(state, move.cell)) return state;
-      const card = CARDS[move.cardId];
+      const card = getCard(move.cardId);
       if (!card) return state;
       const bead: Bead = { cell: move.cell, cardId: move.cardId, glyphIds: card.glyphs.slice(), owner: state.active };
       const players = state.players.map((pl, i) => (i === state.active ? { ...pl, hand: pl.hand.filter((id) => id !== move.cardId) } : pl));
@@ -111,7 +110,7 @@ export function applyMove(state: GameState, move: Move): GameState {
     case 'applyGlyph': {
       if (state.phase !== 'play') return state;
       const bead = state.beads[move.cell];
-      const glyph = GLYPHS[move.glyphId];
+      const glyph = getGlyph(move.glyphId);
       if (!bead || !glyph || bead.glyphIds.includes(move.glyphId)) return state;
       const next: GameState = {
         ...state,

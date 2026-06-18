@@ -1,6 +1,5 @@
 import type { Bead, CellId, GameState } from './types';
-import { CARDS } from '../data/seedDeck';
-import { GLYPHS } from './glyphBank';
+import { getCard, getGlyph } from './content';
 
 // PROGRAMMATIC RELATIONS — the system reads the attributes of two adjacent beads and surfaces a
 // grounded relationship between them (e.g. a Venus bead beside a Jupiter bead → what Ficino said
@@ -65,8 +64,8 @@ const OPPOSITES: Array<[string, string]> = [
 export function attributesOf(bead: Bead): Set<string> {
   const out = new Set<string>();
   const add = (rec?: Record<string, string>) => { if (rec) for (const v of Object.values(rec)) out.add(v); };
-  if (bead.cardId) add(CARDS[bead.cardId]?.correspondences);
-  for (const gid of bead.glyphIds) add(GLYPHS[gid]?.correspondences);
+  if (bead.cardId) add(getCard(bead.cardId)?.correspondences);
+  for (const gid of bead.glyphIds) add(getGlyph(gid)?.correspondences);
   return out;
 }
 

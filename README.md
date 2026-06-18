@@ -37,6 +37,8 @@ and deliberately **bracketed** behind this core.
    relationship between adjacent beads from their attributes** — e.g. a Venus bead next to a Jupiter
    bead surfaces what Ficino said about the benefics against melancholy. Grounded relations score.
 5. **Place meeples:** drag an occupation (Alchemist, Cleric, Scholar…) onto a space to work the board.
+6. **Print Shop (✎):** every element is editable — use the pen to rewrite a card or re-attribute its
+   glyphs, copy (⧉) any explanation into your own card, or forge a brand-new card straight to your hand.
 6. **End turn** to draw back up (in two-player, pass the device behind a hidden-hands screen).
 7. The Game concludes when the universe is full or a player concludes it; the higher synthesis wins.
 

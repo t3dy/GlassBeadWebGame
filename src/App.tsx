@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { applyMove, cellId, createGame, emptyCount, parseCell, winner } from './engine/engine';
-import type { CellId, GameState, Move } from './engine/types';
+import type { CardDef, CellId, GameState, Glyph, Move } from './engine/types';
 import { BANKS, GLYPHS } from './engine/glyphBank';
 import { OCCUPATIONS, OCC_MAP } from './engine/occupations';
-import { CARDS } from './data/seedDeck';
+import { getCard, getGlyph, editCard, editGlyph, createCard } from './engine/content';
 import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
 
 type Armed = { kind: 'card' | 'glyph' | 'meeple'; id: string } | null;
 type PanelView = { type: 'glyph' | 'occupation' | 'bead'; id: string } | null;
+const copy = (t: string) => { try { navigator.clipboard?.writeText(t); } catch { /* ignore */ } };
 
 export default function App() {
   const [state, setState] = useState<GameState | null>(() => localStore.load());
   const [armed, setArmed] = useState<Armed>(null);
   const [panel, setPanel] = useState<PanelView>(null);
+  const [creating, setCreating] = useState(false);
+  const [, setHbv] = useState(0); // bump to re-render after homebrew edits
   const drag = useRef<Armed>(null);
+  const bump = () => setHbv((v) => v + 1);
 
   useEffect(() => { if (state) localStore.save(state); }, [state]);
   if (!state) return <Setup onStart={(n) => setState(createGame(n))} />;
@@ -23,7 +27,6 @@ export default function App() {
   const dispatch = (m: Move) => setState((s) => (s ? applyMove(s, m) : s));
   const start = (n: number) => { setState(createGame(n)); setArmed(null); setPanel(null); };
 
-  // Apply a payload (from click or drop) to a target cell.
   function place(payload: Armed, cell: CellId) {
     if (!payload || state!.phase !== 'play') return;
     const bead = state!.beads[cell];
@@ -31,12 +34,14 @@ export default function App() {
     else if (payload.kind === 'card' && !bead && !state!.meeples[cell]) { dispatch({ kind: 'infuse', cardId: payload.id, cell }); setArmed(null); }
     else if (payload.kind === 'meeple' && !bead && !state!.meeples[cell]) dispatch({ kind: 'placeMeeple', occId: payload.id, cell });
   }
-
   function handleCell(cell: CellId) {
     if (state!.phase !== 'play') return;
     const bead = state!.beads[cell];
     if (bead && (!armed || armed.kind !== 'glyph')) { setPanel({ type: 'bead', id: cell }); return; }
     place(armed, cell);
+  }
+  function giveToHand(id: string) {
+    setState((s) => s && { ...s, players: s.players.map((p, i) => (i === s.active ? { ...p, hand: [...p.hand, id] } : p)) });
   }
 
   return (
@@ -53,10 +58,13 @@ export default function App() {
           <button className="btn gold" disabled={state.phase !== 'play'} onClick={() => dispatch({ kind: 'endTurn' })}>☽ End turn · draw to {state.handSize}</button>
           <button className="btn" disabled={state.phase === 'over'} onClick={() => dispatch({ kind: 'concludeGame' })}>Conclude</button>
           <button className="btn ghost" onClick={() => start(state.players.length)}>New</button>
+          <button className="btn pen" title="Print Shop · forge a new card" onClick={() => setCreating(true)}>✎ New card</button>
           <span className="legal">deck {state.deck.length} · spaces left {emptyCount(state)}</span>
         </div>
         {state.lastRelations.length > 0 && state.phase === 'play' && (
-          <div className="readout">✦ The system reads: {state.lastRelations.join(' · ')}</div>
+          <div className="readout">✦ The system reads: {state.lastRelations.join(' · ')}
+            <button className="copybtn" title="Copy" onClick={() => copy(state.log.filter((l) => l.startsWith('✦')).slice(-state.lastRelations.length).join('\n'))}>⧉</button>
+          </div>
         )}
       </header>
 
@@ -67,7 +75,7 @@ export default function App() {
             onDropCell={(cell) => { place(drag.current, cell); drag.current = null; }} />
         </section>
         <aside className="side">
-          <InfoPanel state={state} view={panel} />
+          <InfoPanel state={state} view={panel} onEdit={bump} />
           <Log lines={state.log} />
         </aside>
       </main>
@@ -75,12 +83,13 @@ export default function App() {
       <footer className="trays">
         <Tray title={`Hand · ${active.name} · cards to infuse`}>
           {active.hand.map((id, i) => {
-            const card = CARDS[id]; const on = armed?.kind === 'card' && armed.id === id;
+            const card = getCard(id); if (!card) return null;
+            const on = armed?.kind === 'card' && armed.id === id;
             return (
               <button key={`${id}-${i}`} className={`card ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
                 onDragStart={() => (drag.current = { kind: 'card', id })}
                 title={`${card.text} — ${card.sourceRef}`} onClick={() => setArmed(on ? null : { kind: 'card', id })}>
-                <span className="card-glyphs">{card.glyphs.map((g) => GLYPHS[g]?.glyph).join(' ')}</span>
+                <span className="card-glyphs">{card.glyphs.map((g) => getGlyph(g)?.glyph).join(' ')}</span>
                 <span className="card-name">{card.name}{card.portal ? ' ↗' : ''}</span>
                 <span className="card-cls">{card.cls}</span>
               </button>
@@ -99,7 +108,7 @@ export default function App() {
                   <button key={g.id} className={`glyph ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
                     onDragStart={() => (drag.current = { kind: 'glyph', id: g.id })}
                     onClick={() => { setPanel({ type: 'glyph', id: g.id }); setArmed(on ? null : { kind: 'glyph', id: g.id }); }}>
-                    {g.glyph}
+                    {getGlyph(g.id)?.glyph}
                   </button>
                 );
               })}
@@ -113,10 +122,8 @@ export default function App() {
             return (
               <button key={o.id} className={`meeple ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
                 onDragStart={() => (drag.current = { kind: 'meeple', id: o.id })}
-                onClick={() => { setPanel({ type: 'occupation', id: o.id }); setArmed(on ? null : { kind: 'meeple', id: o.id }); }}
-                title={o.name}>
-                <span className="meeple-emoji">{o.emoji}</span>
-                <span className="meeple-name">{o.name}</span>
+                onClick={() => { setPanel({ type: 'occupation', id: o.id }); setArmed(on ? null : { kind: 'meeple', id: o.id }); }} title={o.name}>
+                <span className="meeple-emoji">{o.emoji}</span><span className="meeple-name">{o.name}</span>
               </button>
             );
           })}
@@ -125,6 +132,7 @@ export default function App() {
 
       <PortalBar />
 
+      {creating && <NewCardModal onClose={() => setCreating(false)} onCreate={(c) => { createCard(c); giveToHand(c.id); bump(); setCreating(false); }} />}
       {state.phase === 'handoff' && (
         <Overlay>
           <h2>Pass the device</h2>
@@ -153,8 +161,9 @@ function Setup({ onStart }: { onStart: (n: number) => void }) {
       <p className="subtitle big">
         Infuse glass beads with significance from cards, complicate them with alchemical glyphs, and
         place them side by side — the system reads the relations between adjacent beads from real
-        sources (what Ficino said of Venus and Jupiter against melancholy, the chymical wedding of Sol
-        and Luna…). Place occupation meeples to work the board. Solo, or two-player hot-seat.
+        sources. Place occupation meeples to work the board. <b>Every element is editable</b> — open
+        the Print Shop (✎) to rewrite a card, re-attribute its glyphs, or forge your own. Solo, or
+        two-player hot-seat.
       </p>
       <div className="overlay-controls">
         <button className="btn gold big" onClick={() => onStart(1)}>Play solo</button>
@@ -164,18 +173,14 @@ function Setup({ onStart }: { onStart: (n: number) => void }) {
   );
 }
 
-function Board({ state, armed, panel, onCell, onDropCell }: {
-  state: GameState; armed: Armed; panel: PanelView; onCell: (c: CellId) => void; onDropCell: (c: CellId) => void;
-}) {
+function Board({ state, armed, panel, onCell, onDropCell }: { state: GameState; armed: Armed; panel: PanelView; onCell: (c: CellId) => void; onDropCell: (c: CellId) => void }) {
   const hide = state.phase === 'handoff';
   const rows = [];
   for (let r = 0; r < state.size; r++) {
     const cells = [];
     for (let c = 0; c < state.size; c++) {
       const id = cellId(r, c);
-      const bead = state.beads[id];
-      const meeple = state.meeples[id];
-      const empty = !bead && !meeple;
+      const bead = state.beads[id]; const meeple = state.meeples[id]; const empty = !bead && !meeple;
       const cueGlyph = bead && armed?.kind === 'glyph';
       const cuePlace = empty && (armed?.kind === 'card' || armed?.kind === 'meeple');
       const cls = ['cell', bead ? 'has-bead' : '', meeple ? 'has-meeple' : '', panel?.type === 'bead' && panel.id === id ? 'inspected' : '', cueGlyph ? 'cue-glyph' : '', cuePlace ? 'cue-place' : ''].join(' ');
@@ -194,28 +199,33 @@ function Board({ state, armed, panel, onCell, onDropCell }: {
 
 function BeadGlyph({ state, cell }: { state: GameState; cell: CellId }) {
   const bead = state.beads[cell];
-  const card = bead.cardId ? CARDS[bead.cardId] : undefined;
-  const main = bead.glyphIds[0] ? GLYPHS[bead.glyphIds[0]]?.glyph : card?.name[0] ?? '◦';
+  const card = bead.cardId ? getCard(bead.cardId) : undefined;
+  const main = bead.glyphIds[0] ? getGlyph(bead.glyphIds[0])?.glyph : card?.name[0] ?? '◦';
   return (
     <span className={`bead p${bead.owner}`} title={card ? card.name : 'a bead'}>
       <span className="bead-main">{main}</span>
-      {bead.glyphIds.length > 1 && <span className="bead-extra">{bead.glyphIds.slice(1).map((g) => GLYPHS[g]?.glyph).join('')}</span>}
+      {bead.glyphIds.length > 1 && <span className="bead-extra">{bead.glyphIds.slice(1).map((g) => getGlyph(g)?.glyph).join('')}</span>}
     </span>
   );
 }
 
-function InfoPanel({ state, view }: { state: GameState; view: PanelView }) {
+function InfoPanel({ state, view, onEdit }: { state: GameState; view: PanelView; onEdit: () => void }) {
+  const [editing, setEditing] = useState(false);
+  useEffect(() => setEditing(false), [view?.type, view?.id]);
+
   if (view?.type === 'glyph') {
-    const g = GLYPHS[view.id];
-    return (
-      <div className="panel info">
-        <h2><span className="big-glyph">{g.glyph}</span> {g.label}</h2>
-        <p className="cat">{g.category} glyph</p>
-        <h3>In alchemy</h3><p>{g.meaning}</p>
-        <h3>In the game</h3><p>{g.gameUse}</p>
-        <p className="src">{g.sourceRef}</p>
-      </div>
-    );
+    const g = getGlyph(view.id)!;
+    return editing
+      ? <GlyphEditor g={g} onSave={(p) => { editGlyph(view.id, p); onEdit(); setEditing(false); }} onCancel={() => setEditing(false)} />
+      : (
+        <div className="panel info">
+          <h2><span className="big-glyph">{g.glyph}</span> {g.label} <PenBtn onClick={() => setEditing(true)} /></h2>
+          <p className="cat">{g.category} glyph</p>
+          <h3>In alchemy <CopyBtn t={g.meaning} /></h3><p>{g.meaning}</p>
+          <h3>In the game <CopyBtn t={g.gameUse} /></h3><p>{g.gameUse}</p>
+          <p className="src">{g.sourceRef}</p>
+        </div>
+      );
   }
   if (view?.type === 'occupation') {
     const o = OCC_MAP[view.id];
@@ -223,37 +233,109 @@ function InfoPanel({ state, view }: { state: GameState; view: PanelView }) {
       <div className="panel info">
         <h2><span className="big-glyph">{o.emoji}</span> {o.name}</h2>
         <p className="cat">meeple · occupation · favours {o.affinity}</p>
-        <h3>Who they are</h3><p>{o.meaning}</p>
-        <h3>In the game</h3><p>{o.gameUse}</p>
+        <h3>Who they are <CopyBtn t={o.meaning} /></h3><p>{o.meaning}</p>
+        <h3>In the game <CopyBtn t={o.gameUse} /></h3><p>{o.gameUse}</p>
         <p className="src">{o.sourceRef}</p>
       </div>
     );
   }
   if (view?.type === 'bead' && state.beads[view.id]) {
-    const bead = state.beads[view.id]; const card = bead.cardId ? CARDS[bead.cardId] : undefined;
+    const bead = state.beads[view.id]; const card = bead.cardId ? getCard(bead.cardId) : undefined;
     const [r, c] = parseCell(view.id);
+    if (editing && card) return <CardEditor card={card} onSave={(p) => { editCard(card.id, p); onEdit(); setEditing(false); }} onCancel={() => setEditing(false)} />;
     return (
       <div className="panel info">
-        <h2>Bead @ {r},{c}</h2>
+        <h2>Bead @ {r},{c} {card && <PenBtn onClick={() => setEditing(true)} />}</h2>
         {card ? (
           <>
-            <p className="bead-title">{card.name}</p><p>{card.text}</p><p className="src">{card.sourceRef}</p>
+            <p className="bead-title">{card.name} <CopyBtn t={`${card.name}: ${card.text}`} /></p>
+            <p>{card.text}</p><p className="src">{card.sourceRef}</p>
             {card.portal && PORTAL_MAP[card.portal] && (
               <a className="portal-link" href={PORTAL_MAP[card.portal].url} target="_blank" rel="noopener noreferrer">Explore the source · {PORTAL_MAP[card.portal].title} ↗</a>
             )}
           </>
         ) : <p className="muted">An uninfused bead.</p>}
-        <h3>Attributes</h3>
-        <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${GLYPHS[g]?.glyph} ${GLYPHS[g]?.label}`).join(' · ') : '—'}</p>
+        <h3>Attributes (glyphs)</h3>
+        <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${getGlyph(g)?.glyph} ${getGlyph(g)?.label}`).join(' · ') : '—'}</p>
       </div>
     );
   }
   return (
     <div className="panel info">
-      <h2>The glyphs</h2>
-      <p className="muted">Click any glyph, meeple, or bead to read it here. Glyphs are attributes —
-        drag one onto a bead to complicate it, then watch the relations the system finds between neighbours.</p>
+      <h2>The glyphs ✎</h2>
+      <p className="muted">Click any glyph, meeple, or bead to read it here. Use the ✎ pen to edit its
+        text or re-attribute its glyphs, copy ⧉ any explanation into your own card, or forge a new card
+        from the Print Shop. Every element is yours to change.</p>
     </div>
+  );
+}
+
+const PenBtn = ({ onClick }: { onClick: () => void }) => <button className="penbtn" title="Edit (Print Shop)" onClick={onClick}>✎</button>;
+const CopyBtn = ({ t }: { t: string }) => <button className="copybtn" title="Copy" onClick={() => copy(t)}>⧉</button>;
+
+function CardEditor({ card, onSave, onCancel }: { card: CardDef; onSave: (p: Partial<CardDef>) => void; onCancel: () => void }) {
+  const [name, setName] = useState(card.name);
+  const [text, setText] = useState(card.text);
+  const [glyphs, setGlyphs] = useState(card.glyphs.join(', '));
+  const [corr, setCorr] = useState(Object.entries(card.correspondences).map(([k, v]) => `${k}:${v}`).join(', '));
+  const save = () => {
+    const gl = glyphs.split(',').map((s) => s.trim()).filter((s) => GLYPHS[s]);
+    const co: Record<string, string> = {};
+    for (const pair of corr.split(',')) { const [k, v] = pair.split(':').map((s) => s.trim()); if (k && v) co[k] = v; }
+    onSave({ name, text, glyphs: gl, correspondences: co });
+  };
+  return (
+    <div className="panel info editor">
+      <h2>✎ Print Shop · edit card</h2>
+      <label>Name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
+      <label>Text<textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} /></label>
+      <label>Glyph attributions (ids, comma-sep)<input value={glyphs} onChange={(e) => setGlyphs(e.target.value)} placeholder="venus, jupiter" /></label>
+      <label>Correspondences (key:value, comma-sep)<input value={corr} onChange={(e) => setCorr(e.target.value)} placeholder="planet:Venus, discipline:magic" /></label>
+      <p className="hint">Valid glyph ids: {Object.keys(GLYPHS).join(', ')}</p>
+      <div className="editor-actions"><button className="btn gold" onClick={save}>Save</button><button className="btn ghost" onClick={onCancel}>Cancel</button></div>
+    </div>
+  );
+}
+
+function GlyphEditor({ g, onSave, onCancel }: { g: Glyph; onSave: (p: Partial<Glyph>) => void; onCancel: () => void }) {
+  const [meaning, setMeaning] = useState(g.meaning);
+  const [gameUse, setGameUse] = useState(g.gameUse);
+  return (
+    <div className="panel info editor">
+      <h2>✎ Print Shop · edit {g.glyph} {g.label}</h2>
+      <label>In alchemy<textarea value={meaning} onChange={(e) => setMeaning(e.target.value)} rows={3} /></label>
+      <label>In the game<textarea value={gameUse} onChange={(e) => setGameUse(e.target.value)} rows={3} /></label>
+      <div className="editor-actions"><button className="btn gold" onClick={() => onSave({ meaning, gameUse })}>Save</button><button className="btn ghost" onClick={onCancel}>Cancel</button></div>
+    </div>
+  );
+}
+
+function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: CardDef) => void }) {
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [glyphs, setGlyphs] = useState('');
+  const [corr, setCorr] = useState('');
+  const create = () => {
+    const gl = glyphs.split(',').map((s) => s.trim()).filter((s) => GLYPHS[s]);
+    const co: Record<string, string> = {};
+    for (const pair of corr.split(',')) { const [k, v] = pair.split(':').map((s) => s.trim()); if (k && v) co[k] = v; }
+    onCreate({ id: `home:${Date.now()}`, cls: 'concept', name: name || 'Untitled', text, glyphs: gl, correspondences: co, sourceRef: 'player (Print Shop)' });
+  };
+  return (
+    <Overlay>
+      <h2>✎ Print Shop · forge a card</h2>
+      <div className="panel info editor wide">
+        <label>Name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="My concept" /></label>
+        <label>Text<textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="What it means…" /></label>
+        <label>Glyph attributions (ids)<input value={glyphs} onChange={(e) => setGlyphs(e.target.value)} placeholder="venus, jupiter" /></label>
+        <label>Correspondences (key:value)<input value={corr} onChange={(e) => setCorr(e.target.value)} placeholder="planet:Venus" /></label>
+        <p className="hint">Valid glyph ids: {Object.keys(GLYPHS).join(', ')}</p>
+      </div>
+      <div className="overlay-controls">
+        <button className="btn gold big" onClick={create}>Forge → to hand</button>
+        <button className="btn big" onClick={onClose}>Cancel</button>
+      </div>
+    </Overlay>
   );
 }
 
@@ -266,7 +348,6 @@ function ResultLines({ state }: { state: GameState }) {
     </>
   );
 }
-
 function Log({ lines }: { lines: string[] }) {
   return <div className="panel log"><h2>The play</h2><ol>{lines.slice(-16).map((l, i) => <li key={i}>{l}</li>)}</ol></div>;
 }
