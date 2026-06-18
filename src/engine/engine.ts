@@ -1,12 +1,11 @@
 import type { Bead, CellId, GameState, Move, Player } from './types';
 import { CARDS, SEED_DECK } from '../data/seedDeck';
-import { TILES } from './tiles';
 import { GLYPHS } from './glyphBank';
-import { scoreTriad } from './scoring';
+import { OCC_MAP } from './occupations';
+import { attributesOf, computeRelations } from './relations';
 
-// Pure engine. applyMove(state, move) -> new state. `endTurn` is TOTAL (defined for every state)
-// and always legal — the always-a-move / no-deadlock guarantee. Supports 1-player and 2-player
-// hot-seat (shared board + deck, private hands, a handoff phase between turns).
+// Pure engine. Relations between adjacent beads are derived by the system after every move and
+// scored to the active player. `endTurn` is TOTAL and always legal — the no-deadlock guarantee.
 
 export const cellId = (r: number, c: number): CellId => `${r},${c}`;
 export const parseCell = (id: CellId): [number, number] => {
@@ -25,32 +24,19 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function createGame(playerCount = 1, size = 5, handSize = 5): GameState {
   const ids = SEED_DECK.map((c) => c.id);
-  const deck = shuffle([...ids, ...ids, ...ids]); // a few copies so the deck lasts
+  const deck = shuffle([...ids, ...ids, ...ids]);
   const players: Player[] = Array.from({ length: Math.max(1, Math.min(2, playerCount)) }, (_, i) => ({
-    id: i,
-    name: `Player ${i + 1}`,
-    hand: [],
-    score: 0,
+    id: i, name: `Player ${i + 1}`, hand: [], score: 0,
   }));
   let state: GameState = {
-    size,
-    beads: {},
-    tiles: {},
-    triads: [],
-    deck,
-    discard: [],
-    players,
-    active: 0,
-    phase: 'play',
-    handSize,
-    log: ['The workspace is clear as the sun. Infuse a bead with a card, or apply a glyph. End your turn to draw.'],
+    size, beads: {}, meeples: {}, realized: [], lastRelations: [],
+    deck, discard: [], players, active: 0, phase: 'play', handSize,
+    log: ['The universe is clear as the sun. Infuse a bead with a card, then complicate it with glyphs. Place beads side by side and the system will read the relations between them.'],
   };
-  // deal opening hands
   for (let i = 0; i < players.length; i++) state = refill(state, i);
   return state;
 }
 
-/** Refill player p's hand to handSize, reshuffling the discard if the deck runs dry. Never fails. */
 function refill(state: GameState, p: number): GameState {
   const deck = state.deck.slice();
   let discard = state.discard.slice();
@@ -67,41 +53,37 @@ function refill(state: GameState, p: number): GameState {
   return { ...state, deck, discard, players };
 }
 
-const onBoard = (s: GameState, r: number, c: number) => r >= 0 && c >= 0 && r < s.size && c < s.size;
-const isEmpty = (s: GameState, cell: CellId) => !s.beads[cell] && !s.tiles[cell];
+const occupied = (s: GameState, cell: CellId) => !!s.beads[cell] || !!s.meeples[cell];
 
 export function emptyCount(s: GameState): number {
   let n = 0;
-  for (let r = 0; r < s.size; r++) for (let c = 0; c < s.size; c++) if (isEmpty(s, cellId(r, c))) n++;
+  for (let r = 0; r < s.size; r++) for (let c = 0; c < s.size; c++) if (!occupied(s, cellId(r, c))) n++;
   return n;
 }
 
-/** Beads on opposite orthogonal sides of `cell` — the ends of a triad through it. */
-export function triadEndsThrough(s: GameState, cell: CellId): Array<[CellId, CellId]> {
-  const [r, c] = parseCell(cell);
-  const pairs: Array<[CellId, CellId]> = [];
-  const axes: Array<[[number, number], [number, number]]> = [
-    [[r, c - 1], [r, c + 1]],
-    [[r - 1, c], [r + 1, c]],
-  ];
-  for (const [[ar, ac], [br, bc]] of axes) {
-    if (onBoard(s, ar, ac) && onBoard(s, br, bc)) {
-      const a = cellId(ar, ac);
-      const b = cellId(br, bc);
-      if (s.beads[a] && s.beads[b]) pairs.push([a, b]);
-    }
+/** Recompute relations; award the active player for any newly realized one; record the readout. */
+function scoreNewRelations(state: GameState): GameState {
+  const rels = computeRelations(state);
+  const realized = new Set(state.realized);
+  const fresh = rels.filter((r) => !realized.has(r.id));
+  if (fresh.length === 0) return { ...state, lastRelations: [] };
+  let gained = 0;
+  const titles: string[] = [];
+  const lines: string[] = [];
+  for (const r of fresh) {
+    realized.add(r.id);
+    gained += r.points;
+    titles.push(r.title);
+    lines.push(`✦ ${r.title} (+${r.points}) — ${r.text}`);
   }
-  return pairs;
-}
-
-/** End the active player's turn: refill their hand, check for game end, hand off to the next. */
-function endTurn(state: GameState, note: string): GameState {
-  let s = refill(state, state.active);
-  s = { ...s, log: [...s.log, note] };
-  if (emptyCount(s) === 0) return { ...s, phase: 'over', log: [...s.log, 'The board is full. The Game concludes.'] };
-  if (s.players.length === 1) return s; // solo: continue
-  const next = (s.active + 1) % s.players.length;
-  return { ...s, active: next, phase: 'handoff' };
+  const players = state.players.map((pl, i) => (i === state.active ? { ...pl, score: pl.score + gained } : pl));
+  return {
+    ...state,
+    players,
+    realized: [...realized],
+    lastRelations: titles,
+    log: [...state.log, ...lines, `+${gained} to ${state.players[state.active].name}.`],
+  };
 }
 
 export function applyMove(state: GameState, move: Move): GameState {
@@ -111,21 +93,19 @@ export function applyMove(state: GameState, move: Move): GameState {
     case 'infuse': {
       if (state.phase !== 'play') return state;
       const player = state.players[state.active];
-      if (!player.hand.includes(move.cardId)) return state;
-      if (!isEmpty(state, move.cell)) return state;
+      if (!player.hand.includes(move.cardId) || occupied(state, move.cell)) return state;
       const card = CARDS[move.cardId];
       if (!card) return state;
       const bead: Bead = { cell: move.cell, cardId: move.cardId, glyphIds: card.glyphs.slice(), owner: state.active };
-      const players = state.players.map((pl, i) =>
-        i === state.active ? { ...pl, hand: pl.hand.filter((id) => id !== move.cardId) } : pl,
-      );
-      return {
+      const players = state.players.map((pl, i) => (i === state.active ? { ...pl, hand: pl.hand.filter((id) => id !== move.cardId) } : pl));
+      const next: GameState = {
         ...state,
         beads: { ...state.beads, [move.cell]: bead },
         players,
         discard: [...state.discard, move.cardId],
         log: [...state.log, `${player.name} infused a bead with “${card.name}”.`],
       };
+      return scoreNewRelations(next);
     }
 
     case 'applyGlyph': {
@@ -133,67 +113,59 @@ export function applyMove(state: GameState, move: Move): GameState {
       const bead = state.beads[move.cell];
       const glyph = GLYPHS[move.glyphId];
       if (!bead || !glyph || bead.glyphIds.includes(move.glyphId)) return state;
-      return {
+      const next: GameState = {
         ...state,
         beads: { ...state.beads, [move.cell]: { ...bead, glyphIds: [...bead.glyphIds, move.glyphId] } },
-        log: [...state.log, `${state.players[state.active].name} applied ${glyph.glyph} to a bead.`],
+        log: [...state.log, `${state.players[state.active].name} complicated a bead with ${glyph.glyph} ${glyph.label}.`],
       };
+      return scoreNewRelations(next);
     }
 
-    case 'layTile': {
+    case 'placeMeeple': {
       if (state.phase !== 'play') return state;
-      const tile = TILES[move.tileId];
-      if (!tile || !isEmpty(state, move.cell)) return state;
-      const ends = triadEndsThrough(state, move.cell);
-      if (ends.length === 0) return state;
-      const tiles = { ...state.tiles, [move.cell]: { cell: move.cell, tileId: move.tileId, owner: state.active } };
-      const triads = state.triads.slice();
-      let gained = 0;
-      const readouts: string[] = [];
-      for (const [a, b] of ends) {
-        const sc = scoreTriad(state.beads[a], state.beads[b]);
-        gained += sc.points;
-        triads.push({ id: `${a}|${move.cell}|${b}`, subject: a, tile: move.cell, object: b, by: state.active, points: sc.points });
-        const na = CARDS[state.beads[a].cardId ?? '']?.name ?? 'a bead';
-        const nb = CARDS[state.beads[b].cardId ?? '']?.name ?? 'a bead';
-        readouts.push(`${na} ${tile.glyph} ${nb} — ${sc.labels.join(', ')} = ${sc.points}`);
+      const occ = OCC_MAP[move.occId];
+      if (!occ || occupied(state, move.cell)) return state;
+      // worker bonus: +1 per orthogonally-adjacent bead bearing the occupation's affinity
+      const [r, c] = parseCell(move.cell);
+      let bonus = 0;
+      for (const [nr, nc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]] as Array<[number, number]>) {
+        const b = state.beads[cellId(nr, nc)];
+        if (b && attributesOf(b).has(occ.affinity)) bonus++;
       }
-      const players = state.players.map((pl, i) => (i === state.active ? { ...pl, score: pl.score + gained } : pl));
-      const readout = `${tile.operation}: ${readouts.join(' · ')}. +${gained} to ${state.players[state.active].name}.`;
+      const players = state.players.map((pl, i) => (i === state.active ? { ...pl, score: pl.score + bonus } : pl));
       return {
         ...state,
-        tiles,
-        triads,
+        meeples: { ...state.meeples, [move.cell]: { cell: move.cell, occId: move.occId, owner: state.active } },
         players,
-        lastReadout: readout,
-        log: [...state.log, readout],
+        log: [...state.log, `${state.players[state.active].name} placed the ${occ.emoji} ${occ.name}${bonus ? ` (+${bonus} affinity)` : ''}.`],
       };
     }
 
-    case 'endTurn':
+    case 'endTurn': {
       if (state.phase !== 'play') return state;
-      return endTurn(state, `${state.players[state.active].name} ends the turn; the hand is replenished.`);
+      let s = refill(state, state.active);
+      s = { ...s, log: [...s.log, `${state.players[state.active].name} ends the turn; the hand is replenished.`] };
+      if (emptyCount(s) === 0) return { ...s, phase: 'over', log: [...s.log, 'The universe is full. The Game concludes.'] };
+      if (s.players.length === 1) return s;
+      return { ...s, active: (s.active + 1) % s.players.length, phase: 'handoff' };
+    }
 
     case 'ready':
-      if (state.phase !== 'handoff') return state;
-      return { ...state, phase: 'play' };
+      return state.phase === 'handoff' ? { ...state, phase: 'play' } : state;
 
     case 'concludeGame':
       return { ...state, phase: 'over', log: [...state.log, 'The players conclude the Game.'] };
   }
 }
 
-/** Coarse legality summary + the always-a-move invariant. `endTurn` is always present in 'play'. */
 export function legalMoveKinds(state: GameState): Move['kind'][] {
   if (state.phase === 'over') return [];
   if (state.phase === 'handoff') return ['ready'];
   const kinds: Move['kind'][] = ['endTurn', 'concludeGame'];
-  const empties: CellId[] = [];
-  for (let r = 0; r < state.size; r++)
-    for (let c = 0; c < state.size; c++) if (isEmpty(state, cellId(r, c))) empties.push(cellId(r, c));
-  if (state.players[state.active].hand.length > 0 && empties.length > 0) kinds.push('infuse');
+  const hasEmpty = emptyCount(state) > 0;
+  if (state.players[state.active].hand.length > 0 && hasEmpty) kinds.push('infuse');
   if (Object.keys(state.beads).length > 0) kinds.push('applyGlyph');
-  if (empties.some((cell) => triadEndsThrough(state, cell).length > 0)) kinds.push('layTile');
+  if (hasEmpty) kinds.push('placeMeeple');
   return kinds;
 }
 

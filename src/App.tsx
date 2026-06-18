@@ -1,90 +1,73 @@
-import { useEffect, useState } from 'react';
-import { applyMove, cellId, createGame, emptyCount, parseCell, triadEndsThrough, winner } from './engine/engine';
-import type { CellId, GameState } from './engine/types';
-import { GLYPH_BANK, GLYPHS } from './engine/glyphBank';
-import { TILE_DEFS, TILES } from './engine/tiles';
+import { useEffect, useRef, useState } from 'react';
+import { applyMove, cellId, createGame, emptyCount, parseCell, winner } from './engine/engine';
+import type { CellId, GameState, Move } from './engine/types';
+import { BANKS, GLYPHS } from './engine/glyphBank';
+import { OCCUPATIONS, OCC_MAP } from './engine/occupations';
 import { CARDS } from './data/seedDeck';
 import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
 
-type Selection =
-  | { kind: 'card'; id: string }
-  | { kind: 'glyph'; id: string }
-  | { kind: 'tile'; id: string }
-  | null;
+type Armed = { kind: 'card' | 'glyph' | 'meeple'; id: string } | null;
+type PanelView = { type: 'glyph' | 'occupation' | 'bead'; id: string } | null;
 
 export default function App() {
   const [state, setState] = useState<GameState | null>(() => localStore.load());
-  const [sel, setSel] = useState<Selection>(null);
-  const [inspect, setInspect] = useState<CellId | null>(null);
+  const [armed, setArmed] = useState<Armed>(null);
+  const [panel, setPanel] = useState<PanelView>(null);
+  const drag = useRef<Armed>(null);
 
-  useEffect(() => {
-    if (state) localStore.save(state);
-  }, [state]);
-
+  useEffect(() => { if (state) localStore.save(state); }, [state]);
   if (!state) return <Setup onStart={(n) => setState(createGame(n))} />;
 
   const active = state.players[state.active];
+  const dispatch = (m: Move) => setState((s) => (s ? applyMove(s, m) : s));
+  const start = (n: number) => { setState(createGame(n)); setArmed(null); setPanel(null); };
 
-  function start(n: number) {
-    setState(createGame(n));
-    setSel(null);
-    setInspect(null);
-  }
-  function dispatch(m: Parameters<typeof applyMove>[1]) {
-    setState((s) => (s ? applyMove(s, m) : s));
+  // Apply a payload (from click or drop) to a target cell.
+  function place(payload: Armed, cell: CellId) {
+    if (!payload || state!.phase !== 'play') return;
+    const bead = state!.beads[cell];
+    if (payload.kind === 'glyph' && bead) dispatch({ kind: 'applyGlyph', glyphId: payload.id, cell });
+    else if (payload.kind === 'card' && !bead && !state!.meeples[cell]) { dispatch({ kind: 'infuse', cardId: payload.id, cell }); setArmed(null); }
+    else if (payload.kind === 'meeple' && !bead && !state!.meeples[cell]) dispatch({ kind: 'placeMeeple', occId: payload.id, cell });
   }
 
   function handleCell(cell: CellId) {
-    if (!state || state.phase !== 'play') return;
-    const bead = state.beads[cell];
-    if (bead) {
-      if (sel?.kind === 'glyph') dispatch({ kind: 'applyGlyph', glyphId: sel.id, cell });
-      else setInspect(cell);
-      return;
-    }
-    if (state.tiles[cell]) return;
-    if (sel?.kind === 'card') {
-      dispatch({ kind: 'infuse', cardId: sel.id, cell });
-      setSel(null);
-    } else if (sel?.kind === 'tile') {
-      dispatch({ kind: 'layTile', tileId: sel.id, cell });
-    }
+    if (state!.phase !== 'play') return;
+    const bead = state!.beads[cell];
+    if (bead && (!armed || armed.kind !== 'glyph')) { setPanel({ type: 'bead', id: cell }); return; }
+    place(armed, cell);
   }
 
   return (
     <div className="app">
       <header className="topbar">
         <h1>The Glass Bead Game</h1>
-        <a className="hub-link" href={PORTAL_HUB.url} target="_blank" rel="noopener noreferrer">
-          part of the {PORTAL_HUB.title} ↗
-        </a>
+        <a className="hub-link" href={PORTAL_HUB.url} target="_blank" rel="noopener noreferrer">part of the {PORTAL_HUB.title} ↗</a>
         <div className="scores">
           {state.players.map((p) => (
-            <span key={p.id} className={`score ${p.id === state.active && state.phase !== 'over' ? 'turn' : ''}`}>
-              {p.name}: <b>{p.score}</b>
-            </span>
+            <span key={p.id} className={`score ${p.id === state.active && state.phase !== 'over' ? 'turn' : ''}`}>{p.name}: <b>{p.score}</b></span>
           ))}
         </div>
         <div className="controls">
-          <button className="btn gold" disabled={state.phase !== 'play'} onClick={() => dispatch({ kind: 'endTurn' })}>
-            ☽ End turn · draw to {state.handSize}
-          </button>
-          <button className="btn" disabled={state.phase === 'over'} onClick={() => dispatch({ kind: 'concludeGame' })}>
-            Conclude
-          </button>
+          <button className="btn gold" disabled={state.phase !== 'play'} onClick={() => dispatch({ kind: 'endTurn' })}>☽ End turn · draw to {state.handSize}</button>
+          <button className="btn" disabled={state.phase === 'over'} onClick={() => dispatch({ kind: 'concludeGame' })}>Conclude</button>
           <button className="btn ghost" onClick={() => start(state.players.length)}>New</button>
-          <span className="legal">deck {state.deck.length} · cells left {emptyCount(state)} · triads {state.triads.length}</span>
+          <span className="legal">deck {state.deck.length} · spaces left {emptyCount(state)}</span>
         </div>
-        {state.lastReadout && state.phase === 'play' && <div className="readout">✦ {state.lastReadout}</div>}
+        {state.lastRelations.length > 0 && state.phase === 'play' && (
+          <div className="readout">✦ The system reads: {state.lastRelations.join(' · ')}</div>
+        )}
       </header>
 
       <main className="layout">
         <section className="board-wrap">
-          <Board state={state} sel={sel} inspect={inspect} onCell={handleCell} />
+          <div className="board-label">The Universe — place beads side by side; the system reads the relations</div>
+          <Board state={state} armed={armed} panel={panel} onCell={handleCell}
+            onDropCell={(cell) => { place(drag.current, cell); drag.current = null; }} />
         </section>
         <aside className="side">
-          <Inspector state={state} cell={inspect} />
+          <InfoPanel state={state} view={panel} />
           <Log lines={state.log} />
         </aside>
       </main>
@@ -92,13 +75,13 @@ export default function App() {
       <footer className="trays">
         <Tray title={`Hand · ${active.name} · cards to infuse`}>
           {active.hand.map((id, i) => {
-            const card = CARDS[id];
-            const on = sel?.kind === 'card' && sel.id === id;
+            const card = CARDS[id]; const on = armed?.kind === 'card' && armed.id === id;
             return (
-              <button key={`${id}-${i}`} className={`card ${on ? 'active' : ''}`} disabled={state.phase !== 'play'}
-                title={`${card.text} — ${card.sourceRef}`} onClick={() => setSel(on ? null : { kind: 'card', id })}>
+              <button key={`${id}-${i}`} className={`card ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
+                onDragStart={() => (drag.current = { kind: 'card', id })}
+                title={`${card.text} — ${card.sourceRef}`} onClick={() => setArmed(on ? null : { kind: 'card', id })}>
                 <span className="card-glyphs">{card.glyphs.map((g) => GLYPHS[g]?.glyph).join(' ')}</span>
-                <span className="card-name">{card.name}</span>
+                <span className="card-name">{card.name}{card.portal ? ' ↗' : ''}</span>
                 <span className="card-cls">{card.cls}</span>
               </button>
             );
@@ -106,26 +89,34 @@ export default function App() {
           {active.hand.length === 0 && <span className="muted">Hand empty — end the turn to draw.</span>}
         </Tray>
 
-        <Tray title="Glyph bank · always available">
-          {GLYPH_BANK.map((g) => {
-            const on = sel?.kind === 'glyph' && sel.id === g.id;
-            return (
-              <button key={g.id} className={`glyph ${on ? 'active' : ''}`} disabled={state.phase !== 'play'}
-                title={`${g.label} — ${g.sourceRef}`} onClick={() => setSel(on ? null : { kind: 'glyph', id: g.id })}>
-                {g.glyph}
-              </button>
-            );
-          })}
-        </Tray>
+        <div className="banks-head">Glyph banks · click to read · <b>drag onto a bead to complicate a board state</b></div>
+        <div className="banks">
+          {BANKS.map((bank) => (
+            <Tray key={bank.id} title={bank.title}>
+              {bank.glyphs.map((g) => {
+                const on = armed?.kind === 'glyph' && armed.id === g.id;
+                return (
+                  <button key={g.id} className={`glyph ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
+                    onDragStart={() => (drag.current = { kind: 'glyph', id: g.id })}
+                    onClick={() => { setPanel({ type: 'glyph', id: g.id }); setArmed(on ? null : { kind: 'glyph', id: g.id }); }}>
+                    {g.glyph}
+                  </button>
+                );
+              })}
+            </Tray>
+          ))}
+        </div>
 
-        <Tray title="Process tiles · relate two beads">
-          {TILE_DEFS.map((t) => {
-            const on = sel?.kind === 'tile' && sel.id === t.id;
+        <Tray title="Meeples · occupations · click to read · drag onto a space to place a worker">
+          {OCCUPATIONS.map((o) => {
+            const on = armed?.kind === 'meeple' && armed.id === o.id;
             return (
-              <button key={t.id} className={`tile ${on ? 'active' : ''}`} disabled={state.phase !== 'play'}
-                title={`${t.operation} — ${t.gloss}`} onClick={() => setSel(on ? null : { kind: 'tile', id: t.id })}>
-                <span className="tile-glyph">{t.glyph}</span>
-                <span className="tile-op">{t.operation}</span>
+              <button key={o.id} className={`meeple ${on ? 'active' : ''}`} disabled={state.phase !== 'play'} draggable
+                onDragStart={() => (drag.current = { kind: 'meeple', id: o.id })}
+                onClick={() => { setPanel({ type: 'occupation', id: o.id }); setArmed(on ? null : { kind: 'meeple', id: o.id }); }}
+                title={o.name}>
+                <span className="meeple-emoji">{o.emoji}</span>
+                <span className="meeple-name">{o.name}</span>
               </button>
             );
           })}
@@ -141,7 +132,6 @@ export default function App() {
           <button className="btn gold big" onClick={() => dispatch({ kind: 'ready' })}>I am {active.name} · begin</button>
         </Overlay>
       )}
-
       {state.phase === 'over' && (
         <Overlay>
           <h2>The Game concludes</h2>
@@ -161,20 +151,22 @@ function Setup({ onStart }: { onStart: (n: number) => void }) {
     <div className="app setup">
       <h1>The Glass Bead Game</h1>
       <p className="subtitle big">
-        A contemplative game of synthesis. Infuse glass beads with significance from cards, qualify
-        them with alchemical glyphs, and relate two beads through a process tile to form a triad —
-        scoring most when you reconcile opposites and span disciplines.
+        Infuse glass beads with significance from cards, complicate them with alchemical glyphs, and
+        place them side by side — the system reads the relations between adjacent beads from real
+        sources (what Ficino said of Venus and Jupiter against melancholy, the chymical wedding of Sol
+        and Luna…). Place occupation meeples to work the board. Solo, or two-player hot-seat.
       </p>
       <div className="overlay-controls">
         <button className="btn gold big" onClick={() => onStart(1)}>Play solo</button>
         <button className="btn big" onClick={() => onStart(2)}>Two-player hot-seat</button>
       </div>
-      <p className="muted">One device, taking turns. Hands are hidden between turns.</p>
     </div>
   );
 }
 
-function Board({ state, sel, inspect, onCell }: { state: GameState; sel: Selection; inspect: CellId | null; onCell: (c: CellId) => void }) {
+function Board({ state, armed, panel, onCell, onDropCell }: {
+  state: GameState; armed: Armed; panel: PanelView; onCell: (c: CellId) => void; onDropCell: (c: CellId) => void;
+}) {
   const hide = state.phase === 'handoff';
   const rows = [];
   for (let r = 0; r < state.size; r++) {
@@ -182,15 +174,16 @@ function Board({ state, sel, inspect, onCell }: { state: GameState; sel: Selecti
     for (let c = 0; c < state.size; c++) {
       const id = cellId(r, c);
       const bead = state.beads[id];
-      const tile = state.tiles[id];
-      const empty = !bead && !tile;
-      const canTile = empty && sel?.kind === 'tile' && triadEndsThrough(state, id).length > 0;
-      const canInfuse = empty && sel?.kind === 'card';
-      const cls = ['cell', bead ? 'has-bead' : '', tile ? 'has-tile' : '', inspect === id ? 'inspected' : '', canTile ? 'cue-tile' : '', canInfuse ? 'cue-infuse' : ''].join(' ');
+      const meeple = state.meeples[id];
+      const empty = !bead && !meeple;
+      const cueGlyph = bead && armed?.kind === 'glyph';
+      const cuePlace = empty && (armed?.kind === 'card' || armed?.kind === 'meeple');
+      const cls = ['cell', bead ? 'has-bead' : '', meeple ? 'has-meeple' : '', panel?.type === 'bead' && panel.id === id ? 'inspected' : '', cueGlyph ? 'cue-glyph' : '', cuePlace ? 'cue-place' : ''].join(' ');
       cells.push(
-        <button key={id} className={cls} onClick={() => onCell(id)} aria-label={`cell ${id}`}>
+        <button key={id} className={cls} aria-label={`space ${id}`} onClick={() => onCell(id)}
+          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDropCell(id); }}>
           {bead && <BeadGlyph state={state} cell={id} />}
-          {tile && <span className="tileface">{TILES[tile.tileId]?.glyph}</span>}
+          {meeple && <span className="meepleface" title={OCC_MAP[meeple.occId]?.name}>{OCC_MAP[meeple.occId]?.emoji}</span>}
         </button>,
       );
     }
@@ -204,35 +197,62 @@ function BeadGlyph({ state, cell }: { state: GameState; cell: CellId }) {
   const card = bead.cardId ? CARDS[bead.cardId] : undefined;
   const main = bead.glyphIds[0] ? GLYPHS[bead.glyphIds[0]]?.glyph : card?.name[0] ?? '◦';
   return (
-    <span className={`bead p${bead.owner}`} title={card ? `${card.name} — ${card.text}` : 'a bead'}>
+    <span className={`bead p${bead.owner}`} title={card ? card.name : 'a bead'}>
       <span className="bead-main">{main}</span>
       {bead.glyphIds.length > 1 && <span className="bead-extra">{bead.glyphIds.slice(1).map((g) => GLYPHS[g]?.glyph).join('')}</span>}
     </span>
   );
 }
 
-function Inspector({ state, cell }: { state: GameState; cell: CellId | null }) {
-  if (!cell || !state.beads[cell]) return <div className="panel"><h2>Bead</h2><p className="muted">Select a bead to read its significance.</p></div>;
-  const bead = state.beads[cell];
-  const card = bead.cardId ? CARDS[bead.cardId] : undefined;
-  const [r, c] = parseCell(cell);
+function InfoPanel({ state, view }: { state: GameState; view: PanelView }) {
+  if (view?.type === 'glyph') {
+    const g = GLYPHS[view.id];
+    return (
+      <div className="panel info">
+        <h2><span className="big-glyph">{g.glyph}</span> {g.label}</h2>
+        <p className="cat">{g.category} glyph</p>
+        <h3>In alchemy</h3><p>{g.meaning}</p>
+        <h3>In the game</h3><p>{g.gameUse}</p>
+        <p className="src">{g.sourceRef}</p>
+      </div>
+    );
+  }
+  if (view?.type === 'occupation') {
+    const o = OCC_MAP[view.id];
+    return (
+      <div className="panel info">
+        <h2><span className="big-glyph">{o.emoji}</span> {o.name}</h2>
+        <p className="cat">meeple · occupation · favours {o.affinity}</p>
+        <h3>Who they are</h3><p>{o.meaning}</p>
+        <h3>In the game</h3><p>{o.gameUse}</p>
+        <p className="src">{o.sourceRef}</p>
+      </div>
+    );
+  }
+  if (view?.type === 'bead' && state.beads[view.id]) {
+    const bead = state.beads[view.id]; const card = bead.cardId ? CARDS[bead.cardId] : undefined;
+    const [r, c] = parseCell(view.id);
+    return (
+      <div className="panel info">
+        <h2>Bead @ {r},{c}</h2>
+        {card ? (
+          <>
+            <p className="bead-title">{card.name}</p><p>{card.text}</p><p className="src">{card.sourceRef}</p>
+            {card.portal && PORTAL_MAP[card.portal] && (
+              <a className="portal-link" href={PORTAL_MAP[card.portal].url} target="_blank" rel="noopener noreferrer">Explore the source · {PORTAL_MAP[card.portal].title} ↗</a>
+            )}
+          </>
+        ) : <p className="muted">An uninfused bead.</p>}
+        <h3>Attributes</h3>
+        <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${GLYPHS[g]?.glyph} ${GLYPHS[g]?.label}`).join(' · ') : '—'}</p>
+      </div>
+    );
+  }
   return (
-    <div className="panel">
-      <h2>Bead @ {r},{c}</h2>
-      {card ? (
-        <>
-          <p className="bead-title">{card.glyphs.map((g) => GLYPHS[g]?.glyph).join(' ')} {card.name}</p>
-          <p>{card.text}</p>
-          <p className="src">{card.sourceRef}</p>
-          {card.portal && PORTAL_MAP[card.portal] && (
-            <a className="portal-link" href={PORTAL_MAP[card.portal].url} target="_blank" rel="noopener noreferrer">
-              Explore the source · {PORTAL_MAP[card.portal].title} ↗
-            </a>
-          )}
-        </>
-      ) : <p className="muted">An uninfused bead.</p>}
-      <h3>Glyphs applied</h3>
-      <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${GLYPHS[g]?.glyph} ${GLYPHS[g]?.label.split(' — ')[0]}`).join(' · ') : '—'}</p>
+    <div className="panel info">
+      <h2>The glyphs</h2>
+      <p className="muted">Click any glyph, meeple, or bead to read it here. Glyphs are attributes —
+        drag one onto a bead to complicate it, then watch the relations the system finds between neighbours.</p>
     </div>
   );
 }
@@ -241,16 +261,14 @@ function ResultLines({ state }: { state: GameState }) {
   const w = winner(state);
   return (
     <>
-      <ul className="results">
-        {state.players.map((p) => (<li key={p.id}>{p.name}: <b>{p.score}</b> · {state.triads.filter((t) => t.by === p.id).length} triads</li>))}
-      </ul>
+      <ul className="results">{state.players.map((p) => <li key={p.id}>{p.name}: <b>{p.score}</b></li>)}</ul>
       {state.players.length > 1 && <p className="verdict">{w === 'tie' ? 'A perfect equilibrium — a tie.' : `${(w as { name: string }).name} achieves the higher synthesis.`}</p>}
     </>
   );
 }
 
 function Log({ lines }: { lines: string[] }) {
-  return <div className="panel log"><h2>The play</h2><ol>{lines.slice(-14).map((l, i) => <li key={i}>{l}</li>)}</ol></div>;
+  return <div className="panel log"><h2>The play</h2><ol>{lines.slice(-16).map((l, i) => <li key={i}>{l}</li>)}</ol></div>;
 }
 function Tray({ title, children }: { title: string; children: React.ReactNode }) {
   return <div className="tray"><div className="tray-title">{title}</div><div className="tray-items">{children}</div></div>;
@@ -258,16 +276,11 @@ function Tray({ title, children }: { title: string; children: React.ReactNode })
 function Overlay({ children }: { children: React.ReactNode }) {
   return <div className="overlay"><div className="overlay-card">{children}</div></div>;
 }
-
 function PortalBar() {
   return (
     <div className="portalbar">
       <span className="portalbar-title">Knowledge portals · cards draw from these live archives:</span>
-      <div className="portalbar-links">
-        {PORTALS.map((p) => (
-          <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer" title={p.blurb}>{p.title}</a>
-        ))}
-      </div>
+      <div className="portalbar-links">{PORTALS.map((p) => <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer" title={p.blurb}>{p.title}</a>)}</div>
     </div>
   );
 }

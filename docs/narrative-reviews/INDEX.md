@@ -17,3 +17,4 @@ One grounded review artifact per turn (the narrative-design protocol — see
 | 009 | 2026-06-18 | **Built the core** (bead/card/glyph/tile, running app, 5/5 tests) | Core runs + always-a-move proven; next: triad scoring + correspondence readout (no payoff yet) |
 | 010 | 2026-06-18 | **Playable prototype + deploy** (turns, scoring, 2-player hot-seat, GitHub Pages) | Closes the payoff gap; live at t3dy.github.io/GlassBeadWebGame; scoring still coarse — Adventure Starters next |
 | 011 | 2026-06-18 | Wired cards to the 8 live knowledge portals (inspector link, hub link, portal bar) | Provenance made tangible; CROWLEYDB etc. not yet deployed; full ingestion still bracketed |
+| 012 | 2026-06-18 | Glyphs→attributes, **programmatic relations** (Ficino), 4 banks, info panel, meeples, drag | Core pivot: board reads relations from adjacency; grow the relation corpus next; meeple depth is a first cut |

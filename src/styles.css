@@ -170,3 +170,29 @@ body {
 .portalbar-links { display: flex; gap: 10px 16px; flex-wrap: wrap; margin-top: 6px; }
 .portalbar-links a { font-size: 13px; color: var(--stone-green-deep); text-decoration: none; border-bottom: 1px dotted var(--brass); }
 .portalbar-links a:hover { color: var(--violet-robe); border-bottom-color: var(--violet-robe); }
+
+/* Board label + cues */
+.board-label { font-size: 12px; color: #6a786a; margin-bottom: 6px; font-style: italic; }
+.cell.cue-place { box-shadow: inset 0 0 0 2px var(--brocade-gold); }
+.cell.cue-glyph { box-shadow: inset 0 0 0 2px var(--violet-robe); background: rgba(148,0,211,0.15); }
+.cell.has-meeple { background: rgba(255,255,255,0.12); }
+.meepleface { font-size: 26px; }
+
+/* Glyph banks */
+.banks-head { margin: 14px 0 6px; font-size: 13px; color: #4a5a45; }
+.banks-head b { color: var(--violet-robe); }
+.banks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (max-width: 640px) { .banks { grid-template-columns: 1fr; } }
+
+/* Meeples */
+.meeple { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 62px; padding: 6px 4px;
+  border-radius: 8px; cursor: pointer; font: inherit; background: var(--parchment); border: 2px solid var(--brass); }
+.meeple:hover { border-color: var(--brocade-gold); }
+.meeple.active { border-color: var(--violet-robe); box-shadow: 0 0 0 2px var(--violet-robe); }
+.meeple-emoji { font-size: 22px; }
+.meeple-name { font-size: 10px; }
+
+/* Info panel */
+.info .big-glyph { font-size: 22px; }
+.info .cat { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a978a; margin: 0 0 6px; }
+.info p { margin: 4px 0; font-size: 14px; }

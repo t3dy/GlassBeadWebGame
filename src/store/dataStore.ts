@@ -9,11 +9,14 @@ export interface DataStore {
   clear(): void;
 }
 
-const KEY = 'gbg_save_v2';
+const KEY = 'gbg_save_v3';
 
 /** Guard against stale/incompatible saves from earlier schema versions. */
 function isValid(s: unknown): s is GameState {
-  return !!s && typeof s === 'object' && Array.isArray((s as GameState).players) && typeof (s as GameState).phase === 'string';
+  return !!s && typeof s === 'object'
+    && Array.isArray((s as GameState).players)
+    && typeof (s as GameState).phase === 'string'
+    && !!(s as GameState).meeples;
 }
 
 export const localStore: DataStore = {

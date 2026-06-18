@@ -13,6 +13,15 @@
   apply glyph → lay tile → **triad scores** with a readout (coherence / interdisciplinary /
   counterpoint) → **End turn** → 2-player **hot-seat handoff** (hands hidden behind a curtain) →
   **Conclude** → results + winner.
+- **MODEL PIVOT (2026-06-18):** glyphs are now **bead attributes** in 4 banks (Planets/Metals,
+  Zodiac/Processes, Principles, Elements); **relations are derived programmatically** by the system
+  comparing adjacent beads' attributes against a grounded corpus (`src/engine/relations.ts` —
+  Ficino's *De Vita*, the coniunctio, contraries…), scored to the active player. Manual process-tiles
+  are gone (processes became zodiac glyphs). A unified **info panel** explains every glyph/meeple/bead
+  (alchemy + game use). **Mercury** is two distinct glyphs: ☿ planet-metal, ☤ principle/spirit.
+  **Worker placement (first cut):** a 12-occupation **meeple bank** + panel + placement (affinity
+  bonus; deeper actions later). **Drag-and-drop + click** both work. Verified live (Venus|Jupiter →
+  Ficino benefics, +3; Salt dragged onto a bead). Next big lever: grow `RELATION_CORPUS`.
 - **Wired to the live knowledge portals:** `src/data/portals.ts` registers the 8 deployed DH sites
   (HermeticDB, RMDB, Goetia, HPMarginalia, QueryPat, Shakespeare, Marxist, Dreambase). Cards carry an
   optional `portal`; the bead inspector shows an **"Explore the source ↗"** link to the portal site,

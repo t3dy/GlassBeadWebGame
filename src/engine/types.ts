@@ -1,21 +1,24 @@
-// Core types — the four systems: BEAD, CARD, GLYPH, TILE — plus minimal turn/score state for
-// 1-player and 2-player hot-seat. Pure data; no React, no I/O. Everything else (circuits, the
-// correspondence/story engine, board modes, roles, draft, goals, progression, online multiplayer)
-// is BRACKETED — see docs/.
+// Core types. Glyphs are ATTRIBUTES on beads; relations between adjacent beads are derived
+// programmatically (relations.ts). Worker-placement meeples (occupations) sit on the board's
+// spaces. 1- and 2-player hot-seat. Pure data; no React, no I/O.
 
 export type CellId = string; // "r,c"
 
-/** A glyph from the always-available GLYPH BANK (applied to beads to qualify significance). */
+export type GlyphCategory = 'planet' | 'zodiac' | 'principle' | 'element';
+
+/** A glyph from a bank — applied to a bead as an attribute. */
 export interface Glyph {
   id: string;
   glyph: string;
   label: string;
-  set: string;
+  category: GlyphCategory;
   correspondences: Record<string, string>;
+  meaning: string;  // alchemical explanation (info panel)
+  gameUse: string;  // how it behaves in play (info panel)
   sourceRef: string;
 }
 
-/** A CARD — drawn and infused into a bead to give it significance (lore + correspondences). */
+/** A CARD — infused into a bead to give it significance (lore + base correspondences). */
 export interface CardDef {
   id: string;
   cls: 'figure' | 'text' | 'symbol' | 'concept';
@@ -24,41 +27,33 @@ export interface CardDef {
   glyphs: string[];
   correspondences: Record<string, string>;
   sourceRef: string;
-  portal?: string; // id of a knowledge portal (src/data/portals.ts) — links the card to its live site
+  portal?: string;
 }
 
-/** A TILE — a process relation (the alchemical operation) laid between two beads. */
-export interface TileDef {
+/** A worker-placement occupation (a meeple). */
+export interface Occupation {
   id: string;
-  glyph: string;
-  operation: string;
-  relation: string;
-  gloss: string;
+  emoji: string;
+  name: string;
+  affinity: string; // an attribute value it favours
+  meaning: string;
+  gameUse: string;
   sourceRef: string;
 }
 
-/** A BEAD — its significance = (card infused) + (glyphs applied). */
+/** A BEAD — significance = (card infused) + (glyph attributes applied). */
 export interface Bead {
   cell: CellId;
   cardId?: string;
   glyphIds: string[];
-  owner: number; // player index who placed it
-}
-
-export interface PlacedTile {
-  cell: CellId;
-  tileId: string;
   owner: number;
 }
 
-/** A TRIAD — bead → tile → bead = subject → operation → object. */
-export interface Triad {
-  id: string;
-  subject: CellId;
-  tile: CellId;
-  object: CellId;
-  by: number;     // player who formed it
-  points: number; // resonance scored
+/** A placed worker on a board space. */
+export interface Meeple {
+  cell: CellId;
+  occId: string;
+  owner: number;
 }
 
 export interface Player {
@@ -73,22 +68,22 @@ export type Phase = 'play' | 'handoff' | 'over';
 export interface GameState {
   size: number;
   beads: Record<CellId, Bead>;
-  tiles: Record<CellId, PlacedTile>;
-  triads: Triad[];
+  meeples: Record<CellId, Meeple>;
+  realized: string[];        // ids of relations already scored (so re-evaluation doesn't double-count)
+  lastRelations: string[];   // titles of relations formed by the most recent move (for the readout)
   deck: string[];
   discard: string[];
-  players: Player[];   // 1 or 2
-  active: number;      // index of the player to move
+  players: Player[];
+  active: number;
   phase: Phase;
   handSize: number;
   log: string[];
-  lastReadout?: string; // scoring readout for the most recent triad
 }
 
 export type Move =
-  | { kind: 'infuse'; cardId: string; cell: CellId }      // core action 1: card → bead
-  | { kind: 'applyGlyph'; glyphId: string; cell: CellId } // core action 2: glyph → bead
-  | { kind: 'layTile'; tileId: string; cell: CellId }     // relate two beads → triad (scores)
-  | { kind: 'endTurn' }                                   // refill hand + pass (the always-legal floor)
-  | { kind: 'ready' }                                     // dismiss the hot-seat handoff screen
-  | { kind: 'concludeGame' };                             // end now → results
+  | { kind: 'infuse'; cardId: string; cell: CellId }       // play a card → a bead
+  | { kind: 'applyGlyph'; glyphId: string; cell: CellId }  // drag a glyph onto a bead (complicate it)
+  | { kind: 'placeMeeple'; occId: string; cell: CellId }   // worker placement
+  | { kind: 'endTurn' }                                    // refill + pass (always legal)
+  | { kind: 'ready' }                                      // dismiss the hot-seat handoff
+  | { kind: 'concludeGame' };

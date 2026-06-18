@@ -29,11 +29,16 @@ and deliberately **bracketed** behind this core.
 ## How to play
 
 1. Choose **Play solo** or **Two-player hot-seat**.
-2. **Infuse a bead:** pick a card from your hand, then click an empty cell.
-3. **Apply a glyph:** pick a glyph from the bank, then click a bead to qualify it.
-4. **Form a triad:** pick a process tile, then click an empty cell *between two beads* — it scores.
-5. **End turn** to draw back up (and, in two-player, pass the device behind a hidden-hands screen).
-6. The Game concludes when the board is full or a player concludes it; the higher synthesis wins.
+2. **Infuse a bead:** pick a card from your hand, then click (or drag it onto) an empty space.
+3. **Complicate it with glyphs:** glyphs are *attributes* — drag one from a bank (Planets, Zodiac
+   processes, Principles, Elements) onto a bead, or click a glyph then a bead. Click any glyph or
+   meeple to read what it means in alchemy and in the game.
+4. **Let the system read the relations:** place beads side by side and the engine **derives the
+   relationship between adjacent beads from their attributes** — e.g. a Venus bead next to a Jupiter
+   bead surfaces what Ficino said about the benefics against melancholy. Grounded relations score.
+5. **Place meeples:** drag an occupation (Alchemist, Cleric, Scholar…) onto a space to work the board.
+6. **End turn** to draw back up (in two-player, pass the device behind a hidden-hands screen).
+7. The Game concludes when the universe is full or a player concludes it; the higher synthesis wins.
 
 ## Tech stack
 

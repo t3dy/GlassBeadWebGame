@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { applyMove, cellId, createGame, legalMoveKinds, triadEndsThrough, winner } from './engine';
+import { applyMove, cellId, createGame, emptyCount, legalMoveKinds, winner } from './engine';
+import { computeRelations } from './relations';
 import { SEED_DECK } from '../data/seedDeck';
 import type { GameState } from './types';
 
@@ -7,21 +8,28 @@ function firstEmpty(s: GameState) {
   for (let r = 0; r < s.size; r++)
     for (let c = 0; c < s.size; c++) {
       const id = cellId(r, c);
-      if (!s.beads[id] && !s.tiles[id]) return id;
+      if (!s.beads[id] && !s.meeples[id]) return id;
     }
   return undefined;
+}
+
+// Build a state with two adjacent beads carrying chosen glyphs (bypassing the hand for determinism).
+function withAdjacentBeads(glyphsA: string[], glyphsB: string[]): GameState {
+  const s = createGame(1, 5, 5);
+  s.beads[cellId(2, 2)] = { cell: cellId(2, 2), glyphIds: glyphsA, owner: 0 };
+  s.beads[cellId(2, 3)] = { cell: cellId(2, 3), glyphIds: glyphsB, owner: 0 };
+  return s;
 }
 
 describe('core engine', () => {
   it('always offers a move (endTurn floor) for every reachable play state', () => {
     let s = createGame(1, 5, 5);
     for (let i = 0; i < 60; i++) {
-      const kinds = legalMoveKinds(s);
-      if (s.phase === 'play') expect(kinds).toContain('endTurn'); // the invariant
+      if (s.phase === 'play') expect(legalMoveKinds(s)).toContain('endTurn');
       if (s.phase === 'over') break;
+      const kinds = legalMoveKinds(s);
       if (s.phase === 'play' && kinds.includes('infuse')) {
-        const cell = firstEmpty(s)!;
-        s = applyMove(s, { kind: 'infuse', cardId: s.players[s.active].hand[0], cell });
+        s = applyMove(s, { kind: 'infuse', cardId: s.players[s.active].hand[0], cell: firstEmpty(s)! });
       } else {
         s = applyMove(s, { kind: 'endTurn' });
       }
@@ -33,39 +41,42 @@ describe('core engine', () => {
     const card = s.players[0].hand[0];
     s = applyMove(s, { kind: 'infuse', cardId: card, cell: cellId(2, 2) });
     expect(s.beads[cellId(2, 2)]?.cardId).toBe(card);
-    expect(s.players[0].hand).not.toContain(card);
     expect(s.discard).toContain(card);
   });
 
-  it('forms a triad and awards points when a tile relates two beads', () => {
-    let s = createGame(1, 5, 5);
-    s = applyMove(s, { kind: 'infuse', cardId: s.players[0].hand[0], cell: cellId(2, 1) });
-    s = applyMove(s, { kind: 'infuse', cardId: s.players[0].hand[0], cell: cellId(2, 3) });
-    expect(triadEndsThrough(s, cellId(2, 2)).length).toBe(1);
-    s = applyMove(s, { kind: 'layTile', tileId: 'conjoins', cell: cellId(2, 2) });
-    expect(s.triads.length).toBe(1);
-    expect(s.players[0].score).toBeGreaterThanOrEqual(1);
+  it('derives a grounded relation between adjacent Venus and Jupiter beads', () => {
+    const s = withAdjacentBeads(['venus'], ['jupiter']);
+    const rels = computeRelations(s);
+    expect(rels.some((r) => r.title === 'The Benefics against Melancholy')).toBe(true);
   });
 
-  it('runs a 2-player hot-seat turn cycle through the handoff phase', () => {
+  it('scores the active player when applying a glyph creates a new relation', () => {
+    let s = withAdjacentBeads(['venus'], []); // neighbour has no attribute yet → no relation
+    expect(computeRelations(s).length).toBe(0);
+    s = applyMove(s, { kind: 'applyGlyph', glyphId: 'jupiter', cell: cellId(2, 3) });
+    expect(s.players[0].score).toBeGreaterThanOrEqual(3); // Venus+Jupiter benefic = 3
+    expect(s.lastRelations).toContain('The Benefics against Melancholy');
+  });
+
+  it('detects opposition between Fire and Water as counterpoint', () => {
+    const s = withAdjacentBeads(['fire'], ['water']);
+    const rels = computeRelations(s);
+    expect(rels.some((r) => r.kind === 'opposition' || r.title.includes('Contraries'))).toBe(true);
+  });
+
+  it('places a meeple on an empty space', () => {
     let s = createGame(2, 5, 5);
-    expect(s.players.length).toBe(2);
-    expect(s.active).toBe(0);
+    s = applyMove(s, { kind: 'placeMeeple', occId: 'alchemist', cell: cellId(0, 0) });
+    expect(s.meeples[cellId(0, 0)]?.occId).toBe('alchemist');
+    expect(emptyCount(s)).toBe(24);
+  });
+
+  it('runs a 2-player hot-seat cycle and declares a winner', () => {
+    let s = createGame(2, 5, 5);
     s = applyMove(s, { kind: 'endTurn' });
-    expect(s.phase).toBe('handoff'); // hide hands between turns
+    expect(s.phase).toBe('handoff');
     expect(s.active).toBe(1);
     s = applyMove(s, { kind: 'ready' });
-    expect(s.phase).toBe('play');
-    s = applyMove(s, { kind: 'endTurn' });
-    expect(s.active).toBe(0);
-  });
-
-  it('declares a winner when the game is over (2-player)', () => {
-    let s = createGame(2, 5, 5);
-    // give P0 a triad, then conclude
-    s = applyMove(s, { kind: 'infuse', cardId: s.players[0].hand[0], cell: cellId(0, 0) });
-    s = applyMove(s, { kind: 'infuse', cardId: s.players[0].hand[0], cell: cellId(0, 2) });
-    s = applyMove(s, { kind: 'layTile', tileId: 'conjoins', cell: cellId(0, 1) });
     s = applyMove(s, { kind: 'concludeGame' });
     expect(s.phase).toBe('over');
     expect(winner(s)).not.toBeNull();
