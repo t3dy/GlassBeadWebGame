@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "alchemy": {
+      "label": "AlchemyTimeline",
+      "entities": 847,
+      "relations": 2044
+    },
+    "medieval": {
+      "label": "MedievalMagicDB",
+      "entities": 368,
+      "relations": 260
+    },
+    "renmagic": {
+      "label": "Renaissance Magic (RMDB)",
+      "entities": 829,
+      "relations": 479
+    },
+    "theosophical": {
+      "label": "TheosophicalAlchemyDB",
+      "entities": 426,
+      "relations": 800
+    }
+  },
+  "warnings": [
+    "medieval.bibliography: 34 rows, 0 resolved (author/text_pages)"
+  ],
+  "predicateCounts": {
+    "located_at": 602,
+    "participated_in": 695,
+    "cites": 985,
+    "authored": 463,
+    "related_to": 167,
+    "depicts": 405,
+    "concerns": 368
+  },
+  "typeCounts": {
+    "figure": 300,
+    "text": 551,
+    "concept": 471,
+    "event": 956,
+    "location": 62,
+    "emblem": 178
+  },
+  "lowConfidence": 0,
+  "sameAsLinks": 102,
+  "totals": {
+    "entities": 2470,
+    "relations": 3685
+  }
+}

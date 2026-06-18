@@ -1,5 +1,5 @@
 import type { Bead, CellId, GameState, Move, Player } from './types';
-import { getCard, getGlyph, allCardIds } from './content';
+import { getCard, getGlyph, deckCardIds } from './content';
 import { OCC_MAP } from './occupations';
 import { attributesOf, computeRelations } from './relations';
 
@@ -22,7 +22,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function createGame(playerCount = 1, size = 5, handSize = 5): GameState {
-  const ids = allCardIds();
+  const ids = deckCardIds();
   const deck = shuffle([...ids, ...ids, ...ids]);
   const players: Player[] = Array.from({ length: Math.max(1, Math.min(2, playerCount)) }, (_, i) => ({
     id: i, name: `Player ${i + 1}`, hand: [], score: 0,

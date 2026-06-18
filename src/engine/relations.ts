@@ -60,6 +60,41 @@ const OPPOSITES: Array<[string, string]> = [
   ['Fire', 'Water'], ['Air', 'Earth'], ['Sun', 'Moon'], ['Sun', 'Saturn'], ['sol', 'luna'], ['Sulphur', 'Salt'],
 ];
 
+// CORPUS SEAM — the unified-ontology ingestion (docs/UNIFIED_ONTOLOGY.md) registers grounded relation
+// entries derived from the four study DBs. They are matched on entity NAMES (carried in a bead's
+// correspondences via the corpus card), so adjacent corpus beads surface real, cited situations.
+// Indexed by attribute value so we never scan thousands of entries per pair.
+let CORPUS_RELATIONS: RelationEntry[] = [];
+let CORPUS_BY_VALUE: Map<string, RelationEntry[]> = new Map();
+
+export function registerCorpusRelations(entries: RelationEntry[]): void {
+  CORPUS_RELATIONS = entries;
+  CORPUS_BY_VALUE = new Map();
+  for (const e of entries) {
+    for (const key of [e.a, e.b]) {
+      const arr = CORPUS_BY_VALUE.get(key) ?? [];
+      arr.push(e);
+      CORPUS_BY_VALUE.set(key, arr);
+    }
+  }
+}
+
+export const corpusRelationCount = (): number => CORPUS_RELATIONS.length;
+
+/** Corpus entries that could fire between two attribute sets (indexed lookup, deduped). */
+function matchCorpus(A: Set<string>, B: Set<string>): RelationEntry[] {
+  if (CORPUS_RELATIONS.length === 0) return [];
+  const out: RelationEntry[] = [];
+  const seen = new Set<string>();
+  for (const v of A) {
+    for (const e of CORPUS_BY_VALUE.get(v) ?? []) {
+      if (seen.has(e.id)) continue;
+      if ((A.has(e.a) && B.has(e.b)) || (A.has(e.b) && B.has(e.a))) { seen.add(e.id); out.push(e); }
+    }
+  }
+  return out;
+}
+
 /** All attribute VALUES a bead carries (from its card + applied glyphs). */
 export function attributesOf(bead: Bead): Set<string> {
   const out = new Set<string>();
@@ -96,8 +131,8 @@ export function computeRelations(state: GameState): Relation[] {
       const B = attributesOf(state.beads[ncell]);
       const pairKey = cellKey(cell, ncell);
       let scoredThisPair = false;
-      // grounded corpus matches
-      for (const e of RELATION_CORPUS) {
+      // grounded corpus matches — the hand-authored backbone + the ingested unified-ontology corpus
+      for (const e of [...RELATION_CORPUS, ...matchCorpus(A, B)]) {
         if ((A.has(e.a) && B.has(e.b)) || (A.has(e.b) && B.has(e.a))) {
           out.push({ id: `${pairKey}#${e.id}`, cells: [cell, ncell], title: e.title, text: e.text, points: e.points, sourceRef: e.sourceRef, portal: e.portal, kind: 'corpus' });
           scoredThisPair = true;

@@ -97,6 +97,14 @@ the completed game exports as RDF/Turtle.
 
 ## Phase 6 — Online play, the shared crystal & the card corpus *(collaboration + content)*
 
+> **Landed early (2026-06-18):** the **Wave-1 card corpus** shipped ahead of the online phase as a
+> **static** build-time artifact, decoupled from Supabase. `tools/ingest/build_corpus.py` fuses four
+> study DBs into `src/data/corpus/unified.corpus.json` (the **Unified Ontology**,
+> [docs/UNIFIED_ONTOLOGY.md](docs/UNIFIED_ONTOLOGY.md)); the game derives cards + cited adjacency
+> situations from it locally. The Supabase work below now *seeds the shared crystal from this same
+> corpus* rather than building ingestion from scratch.
+
+
 **Build:** Supabase live ([DEPLOYMENT](docs/DEPLOYMENT.md)): **online-collaborative** play (shared
 board/deck, per-player private hands via RLS, turn lock + realtime move broadcast); publish finished
 games to the shared triple store + **pool/crystal**. **Card-corpus ingestion** ([CARD_CORPUS](docs/CARD_CORPUS.md)):

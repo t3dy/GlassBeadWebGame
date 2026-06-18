@@ -3,6 +3,48 @@
 > Live status doc. The Magister Ludi agent updates this as work lands. Read it after
 > [CLAUDE.md](CLAUDE.md) to know what exists and what's next.
 
+## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live**
+
+### UNIFIED ESOTERIC ONTOLOGY — the "Crystal" data layer (added 2026-06-18)
+The standalone study DBs are now fused into one queryable ontology that feeds game assets. See
+[docs/UNIFIED_ONTOLOGY.md](docs/UNIFIED_ONTOLOGY.md).
+- **Sources (Wave 1):** AlchemyTimeline · MedievalMagicDB · Renaissance Magic (RMDB) · TheosophicalAlchemyDB
+  — all four already shared one entity/relation shape (figures · texts · concepts · events · locations
+  · emblems + junction tables), which is the unification seam.
+- **Ingestion:** `tools/ingest/build_corpus.py` (pure stdlib; re-runnable; schema-tolerant column-mapping
+  + generic junction harvesting) reads SQLite + JSON → emits **`src/data/corpus/unified.corpus.json`**
+  (**2,470 entities · 3,685 relations**) + `unified.manifest.json` (provenance + coverage). Full
+  Grounding-Rule provenance on every row (`db`, `sourceRef`, `confidence`, `reviewStatus`).
+- **TS layer:** `src/data/corpus/{types,loader,derive,observe,index}.ts`. `entityToCard()` → infusible
+  CardDef; `correspondencesOf()` lands alchemical attributes (e.g. `operation_type` PUTREFACTION →
+  'Putrefaction'); `occupationForFigure()` maps `role_primary` → a meeple occupation (the John-Dee→
+  alchemist bridge); `observe.ts` turns the relation graph into engine `RelationEntry` rows keyed on
+  entity **names**, with grounded per-predicate templates that **cite the source inline**.
+- **Engine seam (light touch):** `relations.ts` `registerCorpusRelations()` (indexed matcher, no per-pair
+  scan of thousands); `content.ts` corpus-card registry resolvable via `getCard()`. **The corpus is
+  lazy-loaded** (dynamic import → its own 3MB chunk; main bundle unchanged at ~190KB) so local-first play
+  is untouched if it never loads.
+- **In game:** App lights the crystal on mount; a **"✦ Draw from the Crystal"** action + a header readout
+  (`✦ crystal N entities · M relations · K cards`). **Verified in-browser** (2470 / 1433 connectable /
+  931 cards; drawing yields a real cited card — e.g. Benivieni's *Trattato in difesa di Savonarola*) and
+  by a **unit test**: two adjacent corpus beads surface the real **Authorship** situation (John Dee →
+  *Monas Hieroglyphica*), cited. `npm test` **14/14**; `npm run build` clean.
+- **DLC PACKS (added 2026-06-18):** players curate **topical decks** from the whole library (base +
+  the 931-card Crystal + their Print Shop cards). `content.ts`: `Pack` + create/edit/delete/
+  `toggleActivePack`, `deckCardIds()` (active packs build the deck; `createGame` uses it),
+  `libraryCardIds()`, `exportPack`/`importPack` (self-contained JSON embedding card defs — shareable
+  "DLC"); persisted `gbg_packs_v1`. UI: **▦ Packs** modal + Pack Builder (topic search across the
+  library, Add / Add-all, chips, activate, export ⧉, import). **Verified live:** a "Medieval
+  Alchemists Pack" (search "alchem" → 420 cards) → activated → new game deck = 1255, hand all
+  alchemical/cited (Ashmole, Atalanta Fugiens emblems). **Delivers review 014's "gate the draw."**
+- **NEXT for the Crystal layer:** (1) ✅ partly done — DLC Packs give a curated library subset; still
+  want a lightweight in-hand browser; (2) the meeple+role+place hook (alchemist on Prague Castle →
+  attach the John Dee figure card) using `participated_in`/`located_at`; (3) Wave-2 sources (CROWLEYDB,
+  PicoDB, ChristianCabalaDB…); (4) ship a few **example packs** as defaults; (5) the Supabase "crystal"
+  (online phase) seeds from this same corpus.
+
+---
+
 ## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat)
 
 - **Live:** https://t3dy.github.io/GlassBeadWebGame/ (GitHub Pages via Actions; push to `main` redeploys).
@@ -182,6 +224,12 @@ optional layers off until the core is fun. See [PLAN.md](PLAN.md).
 
 ### Open questions / `TODO(grounding)` log
 *(Add any string/symbol you couldn't ground here, per the Grounding Rule.)*
+- [ ] **Corpus cards with no summary** fall back to a `"… Awaiting a sourced gloss."` face
+      (`src/data/corpus/derive.ts`). Either filter these from the curated deck or backfill glosses from
+      the source DBs. (review 014)
+- [ ] **Gate the Crystal draw** instead of exposing all 931 cards at once — scope the per-move surface by
+      active portal / tradition / era / private goal; prefer a *seek* verb over random draw, to restore
+      scarcity + agency (Shipp ch.4 conflict; Tom Smith verbs). (review 014)
 - [ ] Verify each starter **kanji tile** gloss against a source ([SYMBOL_SETS](docs/SYMBOL_SETS.md#tile-sets-predicates--relations--kanji--relational-signs)).
 - [ ] Confirm trigram↔circuit assignments are defensible or label them clearly interpretive.
 - [ ] Decide board size default (9×9 proposed) and whether grid is fixed or growable.

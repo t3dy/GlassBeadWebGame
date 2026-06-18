@@ -19,3 +19,5 @@ One grounded review artifact per turn (the narrative-design protocol — see
 | 011 | 2026-06-18 | Wired cards to the 8 live knowledge portals (inspector link, hub link, portal bar) | Provenance made tangible; CROWLEYDB etc. not yet deployed; full ingestion still bracketed |
 | 012 | 2026-06-18 | Glyphs→attributes, **programmatic relations** (Ficino), 4 banks, info panel, meeples, drag | Core pivot: board reads relations from adjacency; grow the relation corpus next; meeple depth is a first cut |
 | 013 | 2026-06-18 | **Print Shop** (edit any card/glyph, forge cards, copy) + **Vision Audit** vs Hesse & Leary | Editability = most on-philosophy feature; audit names gaps: figure-workers, location layer, contemplative mode |
+| 014 | 2026-06-18 | **Unified ontology / "Crystal"** (4 study DBs → 2470 entities / 1433 relations feed bead-adjacency) | Knitted data spine, but gate the 931-card draw (scope by portal/era/goal + seek verb) to restore scarcity/agency |
+| 015 | 2026-06-18 | **DLC Packs** — player-curated topical decks (search library → activate → export/import) | Directly answers review 014's "gate the draw"; ship example packs; nudge smaller curated packs |

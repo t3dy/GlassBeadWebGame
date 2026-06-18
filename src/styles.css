@@ -208,3 +208,23 @@ body {
 .editor .hint { font-size: 11px; color: #8a978a; word-break: break-word; }
 .editor-actions { display: flex; gap: 8px; margin-top: 10px; }
 .editor.wide { max-width: 460px; text-align: left; }
+
+/* DLC Packs */
+.btn.ghost.sm { font-size: 11px; padding: 3px 7px; }
+.packlist { text-align: left; max-height: 200px; overflow: auto; margin: 8px 0; }
+.packrow { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--rosy-b); font-size: 13px; }
+.packactive { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #6a786a; }
+.packname { font-weight: 600; }
+.importbox { text-align: left; font-size: 12px; margin: 6px 0; }
+.importbox textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; margin: 4px 0; }
+.packbuilder { max-width: 520px; }
+.packsearchhead { font-size: 12px; color: #6a786a; margin: 4px 0; display: flex; gap: 8px; align-items: center; }
+.packresults { max-height: 220px; overflow: auto; border: 1px solid var(--brass); border-radius: 8px; padding: 4px; margin: 4px 0; background: #fff; }
+.packcard { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; font: inherit; font-size: 12px;
+  padding: 5px 7px; border: none; border-bottom: 1px solid var(--rosy-b); background: none; cursor: pointer; }
+.packcard:hover { background: var(--rosy-a); }
+.packcard.on { background: rgba(34,139,34,0.12); }
+.pc-name { flex: 1; } .pc-src { white-space: nowrap; font-size: 11px; }
+.packselected { font-size: 12px; margin-top: 6px; }
+.selchips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.chip { background: var(--violet-robe); color: #fff; border-radius: 999px; padding: 2px 8px; font-size: 11px; cursor: pointer; }

@@ -3,9 +3,11 @@ import { applyMove, cellId, createGame, emptyCount, parseCell, winner } from './
 import type { CardDef, CellId, GameState, Glyph, Move } from './engine/types';
 import { BANKS, GLYPHS } from './engine/glyphBank';
 import { OCCUPATIONS, OCC_MAP } from './engine/occupations';
-import { getCard, getGlyph, editCard, editGlyph, createCard } from './engine/content';
+import { getCard, getGlyph, editCard, editGlyph, createCard, corpusCardIds,
+  libraryCardIds, listPacks, activePackIds, createPack, updatePack, deletePack, toggleActivePack, exportPack, importPack, type Pack } from './engine/content';
 import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
+import { activateCorpus, type CorpusActivation } from './data/corpus';
 
 type Armed = { kind: 'card' | 'glyph' | 'meeple'; id: string } | null;
 type PanelView = { type: 'glyph' | 'occupation' | 'bead'; id: string } | null;
@@ -16,11 +18,15 @@ export default function App() {
   const [armed, setArmed] = useState<Armed>(null);
   const [panel, setPanel] = useState<PanelView>(null);
   const [creating, setCreating] = useState(false);
+  const [packsOpen, setPacksOpen] = useState(false);
   const [, setHbv] = useState(0); // bump to re-render after homebrew edits
+  const [corpus, setCorpus] = useState<CorpusActivation | null>(null);
   const drag = useRef<Armed>(null);
   const bump = () => setHbv((v) => v + 1);
 
   useEffect(() => { if (state) localStore.save(state); }, [state]);
+  // Light up the unified-ontology "crystal" (lazy; the game runs fully without it).
+  useEffect(() => { activateCorpus().then((a) => { setCorpus(a); bump(); }); }, []);
   if (!state) return <Setup onStart={(n) => setState(createGame(n))} />;
 
   const active = state.players[state.active];
@@ -43,6 +49,11 @@ export default function App() {
   function giveToHand(id: string) {
     setState((s) => s && { ...s, players: s.players.map((p, i) => (i === s.active ? { ...p, hand: [...p.hand, id] } : p)) });
   }
+  function drawFromCrystal() {
+    const ids = corpusCardIds();
+    if (!ids.length) return;
+    giveToHand(ids[Math.floor(Math.random() * ids.length)]);
+  }
 
   return (
     <div className="app">
@@ -59,7 +70,12 @@ export default function App() {
           <button className="btn" disabled={state.phase === 'over'} onClick={() => dispatch({ kind: 'concludeGame' })}>Conclude</button>
           <button className="btn ghost" onClick={() => start(state.players.length)}>New</button>
           <button className="btn pen" title="Print Shop · forge a new card" onClick={() => setCreating(true)}>✎ New card</button>
-          <span className="legal">deck {state.deck.length} · spaces left {emptyCount(state)}</span>
+          <button className="btn" title="DLC Packs · curate decks by topic" onClick={() => setPacksOpen(true)}>▦ Packs{activePackIds().length ? ` (${activePackIds().length})` : ''}</button>
+          {corpus?.ok && (
+            <button className="btn" disabled={state.phase !== 'play'} title="Draw a card from the unified esoteric corpus — adjacent corpus beads surface real, cited situations" onClick={drawFromCrystal}>✦ Draw from the Crystal</button>
+          )}
+          <span className="legal">deck {state.deck.length} · spaces left {emptyCount(state)}
+            {corpus?.ok && <> · ✦ crystal {corpus.entities} entities · {corpus.relations} relations · {corpus.cards} cards</>}</span>
         </div>
         {state.lastRelations.length > 0 && state.phase === 'play' && (
           <div className="readout">✦ The system reads: {state.lastRelations.join(' · ')}
@@ -133,6 +149,7 @@ export default function App() {
       <PortalBar />
 
       {creating && <NewCardModal onClose={() => setCreating(false)} onCreate={(c) => { createCard(c); giveToHand(c.id); bump(); setCreating(false); }} />}
+      {packsOpen && <PacksModal corpusOk={!!corpus?.ok} onClose={() => { setPacksOpen(false); bump(); }} />}
       {state.phase === 'handoff' && (
         <Overlay>
           <h2>Pass the device</h2>
@@ -334,6 +351,102 @@ function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c
       <div className="overlay-controls">
         <button className="btn gold big" onClick={create}>Forge → to hand</button>
         <button className="btn big" onClick={onClose}>Cancel</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function PacksModal({ corpusOk, onClose }: { corpusOk: boolean; onClose: () => void }) {
+  const [, force] = useState(0);
+  const refresh = () => force((v) => v + 1);
+  const [editing, setEditing] = useState<string | null | undefined>(undefined); // undefined=list, null=new, id=edit
+  const [importText, setImportText] = useState('');
+  const packs = listPacks();
+  const active = activePackIds();
+
+  if (editing !== undefined) {
+    const pack = editing ? packs.find((p) => p.id === editing) : null;
+    return <PackBuilder corpusOk={corpusOk} pack={pack ?? undefined} onDone={() => { setEditing(undefined); refresh(); }} />;
+  }
+  return (
+    <Overlay>
+      <h2>▦ DLC Packs</h2>
+      <p className="muted">Curate decks by topic from the base cards, the Crystal library, and your own
+        Print Shop cards. Tick a pack <b>active</b> to build the deck for your next New Game; export to share.</p>
+      <div className="packlist">
+        {packs.length === 0 && <p className="muted">No packs yet — create one, e.g. a “Medieval Alchemists Pack”.</p>}
+        {packs.map((p) => (
+          <div key={p.id} className="packrow">
+            <label className="packactive"><input type="checkbox" checked={active.includes(p.id)} onChange={() => { toggleActivePack(p.id); refresh(); }} /> active</label>
+            <span className="packname">{p.name}</span><span className="muted">{p.cardIds.length} cards</span>
+            <button className="btn ghost sm" onClick={() => setEditing(p.id)}>Edit</button>
+            <button className="btn ghost sm" onClick={() => copy(exportPack(p.id))} title="Copy export JSON to clipboard">Export ⧉</button>
+            <button className="btn ghost sm" onClick={() => { deletePack(p.id); refresh(); }}>Delete</button>
+          </div>
+        ))}
+      </div>
+      <details className="importbox">
+        <summary>Import a shared pack (paste JSON)</summary>
+        <textarea value={importText} onChange={(e) => setImportText(e.target.value)} rows={3} placeholder='{"kind":"gbg-dlc-pack","name":"…","cards":[…]}' />
+        <button className="btn" onClick={() => { if (importPack(importText)) { setImportText(''); refresh(); } }}>Import</button>
+      </details>
+      <div className="overlay-controls">
+        <button className="btn gold big" onClick={() => setEditing(null)}>＋ New pack</button>
+        <button className="btn big" onClick={onClose}>Done</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function PackBuilder({ corpusOk, pack, onDone }: { corpusOk: boolean; pack?: Pack; onDone: () => void }) {
+  const [name, setName] = useState(pack?.name ?? '');
+  const [description, setDescription] = useState(pack?.description ?? '');
+  const [selected, setSelected] = useState<string[]>(pack?.cardIds ?? []);
+  const [q, setQ] = useState('');
+  const lib = libraryCardIds();
+  const sel = new Set(selected);
+  const ql = q.trim().toLowerCase();
+  const matches = ql
+    ? lib.filter((id) => {
+        const c = getCard(id); if (!c) return false;
+        const hay = `${c.name} ${c.text} ${c.sourceRef} ${Object.values(c.correspondences).join(' ')}`.toLowerCase();
+        return hay.includes(ql);
+      })
+    : [];
+  const shown = matches.slice(0, 60);
+  const add = (id: string) => setSelected((s) => (s.includes(id) ? s : [...s, id]));
+  const remove = (id: string) => setSelected((s) => s.filter((x) => x !== id));
+  const save = () => { if (pack) updatePack(pack.id, { name, description, cardIds: selected }); else createPack(name, description, selected); onDone(); };
+
+  return (
+    <Overlay>
+      <h2>▦ {pack ? 'Edit' : 'New'} pack</h2>
+      <div className="panel info editor wide packbuilder">
+        <label>Pack name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Medieval Alchemists Pack" /></label>
+        <label>Description<input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Alchemists & their works from the medieval databases" /></label>
+        <label>Search the library {corpusOk ? `· ${lib.length} cards` : '· (Crystal still loading…)'}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="alchem · Paracelsus · mercury · Prague…" /></label>
+        {ql && <div className="packsearchhead">{matches.length} match{matches.length === 1 ? '' : 'es'}{matches.length > 0 && <button className="btn ghost sm" onClick={() => setSelected((s) => [...new Set([...s, ...matches])])}>＋ Add all {matches.length}</button>}</div>}
+        <div className="packresults">
+          {!ql && <p className="muted">Type to search by topic, name, source, or correspondence — then add cards or “Add all”.</p>}
+          {shown.map((id) => {
+            const c = getCard(id); if (!c) return null; const on = sel.has(id);
+            return (
+              <button key={id} className={`packcard ${on ? 'on' : ''}`} onClick={() => (on ? remove(id) : add(id))} title={`${c.text} — ${c.sourceRef}`}>
+                <span className="pc-name">{c.glyphs.map((g) => getGlyph(g)?.glyph).join(' ')} {c.name}</span>
+                <span className="muted pc-src">{c.sourceRef}</span>
+              </button>
+            );
+          })}
+          {ql && matches.length > shown.length && <p className="muted">…and {matches.length - shown.length} more — refine, or Add all.</p>}
+        </div>
+        <div className="packselected"><b>{selected.length}</b> selected{selected.length > 0 && <> · <button className="btn ghost sm" onClick={() => setSelected([])}>clear</button></>}
+          <div className="selchips">{selected.map((id) => { const c = getCard(id); return <span key={id} className="chip" onClick={() => remove(id)} title="remove">{c?.name ?? id} ✕</span>; })}</div>
+        </div>
+      </div>
+      <div className="overlay-controls">
+        <button className="btn gold big" onClick={save} disabled={!name || selected.length === 0}>Save pack</button>
+        <button className="btn big" onClick={onDone}>Cancel</button>
       </div>
     </Overlay>
   );
