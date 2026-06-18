@@ -24,6 +24,7 @@ export interface CardDef {
   glyphs: string[];
   correspondences: Record<string, string>;
   sourceRef: string;
+  portal?: string; // id of a knowledge portal (src/data/portals.ts) — links the card to its live site
 }
 
 /** A TILE — a process relation (the alchemical operation) laid between two beads. */

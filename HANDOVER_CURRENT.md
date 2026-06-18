@@ -13,6 +13,11 @@
   apply glyph → lay tile → **triad scores** with a readout (coherence / interdisciplinary /
   counterpoint) → **End turn** → 2-player **hot-seat handoff** (hands hidden behind a curtain) →
   **Conclude** → results + winner.
+- **Wired to the live knowledge portals:** `src/data/portals.ts` registers the 8 deployed DH sites
+  (HermeticDB, RMDB, Goetia, HPMarginalia, QueryPat, Shakespeare, Marxist, Dreambase). Cards carry an
+  optional `portal`; the bead inspector shows an **"Explore the source ↗"** link to the portal site,
+  the header links the **DBCatalog hub**, and a footer **portal bar** links all 8. (CROWLEYDB,
+  Neoplatonism, etc. aren't publicly deployed yet — add to the registry when they are.)
 - All **optional layers remain bracketed** (circuits, correspondence/story engine, Adventure Starters,
   draft, goals, progression, board modes, roles, online, diagrams) — specified in `docs/`, not built.
 

@@ -4,6 +4,7 @@ import type { CellId, GameState } from './engine/types';
 import { GLYPH_BANK, GLYPHS } from './engine/glyphBank';
 import { TILE_DEFS, TILES } from './engine/tiles';
 import { CARDS } from './data/seedDeck';
+import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
 
 type Selection =
@@ -55,6 +56,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <h1>The Glass Bead Game</h1>
+        <a className="hub-link" href={PORTAL_HUB.url} target="_blank" rel="noopener noreferrer">
+          part of the {PORTAL_HUB.title} ↗
+        </a>
         <div className="scores">
           {state.players.map((p) => (
             <span key={p.id} className={`score ${p.id === state.active && state.phase !== 'over' ? 'turn' : ''}`}>
@@ -127,6 +131,8 @@ export default function App() {
           })}
         </Tray>
       </footer>
+
+      <PortalBar />
 
       {state.phase === 'handoff' && (
         <Overlay>
@@ -213,7 +219,18 @@ function Inspector({ state, cell }: { state: GameState; cell: CellId | null }) {
   return (
     <div className="panel">
       <h2>Bead @ {r},{c}</h2>
-      {card ? (<><p className="bead-title">{card.glyphs.map((g) => GLYPHS[g]?.glyph).join(' ')} {card.name}</p><p>{card.text}</p><p className="src">{card.sourceRef}</p></>) : <p className="muted">An uninfused bead.</p>}
+      {card ? (
+        <>
+          <p className="bead-title">{card.glyphs.map((g) => GLYPHS[g]?.glyph).join(' ')} {card.name}</p>
+          <p>{card.text}</p>
+          <p className="src">{card.sourceRef}</p>
+          {card.portal && PORTAL_MAP[card.portal] && (
+            <a className="portal-link" href={PORTAL_MAP[card.portal].url} target="_blank" rel="noopener noreferrer">
+              Explore the source · {PORTAL_MAP[card.portal].title} ↗
+            </a>
+          )}
+        </>
+      ) : <p className="muted">An uninfused bead.</p>}
       <h3>Glyphs applied</h3>
       <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${GLYPHS[g]?.glyph} ${GLYPHS[g]?.label.split(' — ')[0]}`).join(' · ') : '—'}</p>
     </div>
@@ -240,4 +257,17 @@ function Tray({ title, children }: { title: string; children: React.ReactNode })
 }
 function Overlay({ children }: { children: React.ReactNode }) {
   return <div className="overlay"><div className="overlay-card">{children}</div></div>;
+}
+
+function PortalBar() {
+  return (
+    <div className="portalbar">
+      <span className="portalbar-title">Knowledge portals · cards draw from these live archives:</span>
+      <div className="portalbar-links">
+        {PORTALS.map((p) => (
+          <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer" title={p.blurb}>{p.title}</a>
+        ))}
+      </div>
+    </div>
+  );
 }
