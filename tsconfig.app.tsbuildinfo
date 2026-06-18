@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/data/seeddeck.ts","./src/engine/engine.test.ts","./src/engine/engine.ts","./src/engine/glyphbank.ts","./src/engine/scoring.ts","./src/engine/tiles.ts","./src/engine/types.ts","./src/store/datastore.ts"],"version":"5.9.3"}

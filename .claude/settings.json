@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'NARRATIVE-DESIGN PROTOCOL (glassbeadgame): a grounded review artifact is required every turn. After completing this turn, invoke the narrative-designer agent (or do its review inline for a trivial turn) to: (1) analyze what was produced this turn; (2) audit it against the study materials in docs/CORPUS_GAME_DESIGN.md (knitted vs layered theme, motivated elements, degree of thematic action, conflict, player verbs); (3) write a dated artifact to docs/narrative-reviews/ following docs/narrative-reviews/TEMPLATE.md and append a line to docs/narrative-reviews/INDEX.md. Cite PDF sources by author/chapter; keep player-facing copy grounded in Hesse/Leary/RAW. Skip only if the user explicitly says no review.'",
+            "statusMessage": "Narrative-design review reminder"
+          }
+        ]
+      }
+    ]
+  }
+}
