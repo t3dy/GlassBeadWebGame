@@ -3,12 +3,18 @@
 > Live status doc. The Magister Ludi agent updates this as work lands. Read it after
 > [CLAUDE.md](CLAUDE.md) to know what exists and what's next.
 
-## Status: **Core built & verified** (Phases 0–1 + the core of Phase 2, optional layers OFF)
+## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat)
 
-The app runs: `npm install` → `npm run dev` (Vite, :5173) → `npm test` (5/5) → `npm run build` (clean).
-Verified live: infuse a bead from a card, apply a glyph from the bank, lay a process tile between two
-beads → a triad forms ("triads 1"). All **optional layers are bracketed** (scoring, circuits,
-correspondence/story engine, draft, goals, progression, board modes, roles, multiplayer, diagrams).
+- **Live:** https://t3dy.github.io/GlassBeadWebGame/ (GitHub Pages via Actions; push to `main` redeploys).
+- **Repo:** https://github.com/t3dy/GlassBeadWebGame (public). README has the live link at top, an
+  elevator pitch, and the tech-stack table.
+- Runs locally: `npm install` → `npm run dev` (:5173); `npm test` (**6/6**); `npm run build` (clean).
+- **Verified end-to-end (local preview + live):** setup (solo / 2-player) → infuse bead from card →
+  apply glyph → lay tile → **triad scores** with a readout (coherence / interdisciplinary /
+  counterpoint) → **End turn** → 2-player **hot-seat handoff** (hands hidden behind a curtain) →
+  **Conclude** → results + winner.
+- All **optional layers remain bracketed** (circuits, correspondence/story engine, Adventure Starters,
+  draft, goals, progression, board modes, roles, online, diagrams) — specified in `docs/`, not built.
 
 ### Code shipped (the four core systems)
 - `src/engine/types.ts` — BEAD / CARD / GLYPH / TILE + `Move` (infuse | applyGlyph | layTile | meditate).

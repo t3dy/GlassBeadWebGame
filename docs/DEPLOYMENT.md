@@ -1,4 +1,14 @@
-# Deployment — Vercel (Hobby) + Supabase (Free)
+# Deployment
+
+> **Live now:** the playable core is deployed to **GitHub Pages** via GitHub Actions
+> (`.github/workflows/deploy.yml`: push to `main` → `npm ci` → `npm test` → `npm run build` →
+> deploy). URL: **https://t3dy.github.io/GlassBeadWebGame/** . The Vite `base` is set to
+> `/GlassBeadWebGame/` on build. This is the simplest GitHub-native host and needs no extra accounts.
+>
+> The Vercel + Supabase plan below remains the path for when the **shared/online** features
+> (collaborative play, the crystal) come online — those need a backend Pages can't provide.
+
+## Vercel (Hobby) + Supabase (Free) — for the online phase
 
 Hosting target decided 2026-06-18. The two services are **complementary**, not competing:
 

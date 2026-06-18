@@ -15,3 +15,4 @@ One grounded review artifact per turn (the narrative-design protocol — see
 | 007 | 2026-06-18 | Optional board modes (Tarot/Geomancy/I Ching/Kamea sigils) | One engine, many layouts (modes emit signatures); keep optional + sequence post-core |
 | 008 | 2026-06-18 | Roles & worker placement (meeple → role / historical character) | Optional layer empowering core actions; watch layer-stacking complexity; soften contention in collab |
 | 009 | 2026-06-18 | **Built the core** (bead/card/glyph/tile, running app, 5/5 tests) | Core runs + always-a-move proven; next: triad scoring + correspondence readout (no payoff yet) |
+| 010 | 2026-06-18 | **Playable prototype + deploy** (turns, scoring, 2-player hot-seat, GitHub Pages) | Closes the payoff gap; live at t3dy.github.io/GlassBeadWebGame; scoring still coarse — Adventure Starters next |
