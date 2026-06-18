@@ -28,6 +28,18 @@ export function registerCorpusCards(cards: CardDef[]): void {
 export const corpusCardIds = (): string[] => Object.keys(corpusCards);
 export const corpusCardCount = (): number => Object.keys(corpusCards).length;
 
+// BUILT-IN DLC — curated packs shipped with the app (e.g. the Societas Magica packs). Their cards
+// register here so getCard() resolves them; the packs appear in the Packs modal as activatable
+// built-ins (id prefix "dlc:") that can't be deleted/edited but can be activated, exported, cloned.
+let dlcCards: Record<string, CardDef> = {};
+let builtinPacks: Pack[] = [];
+export function registerDlc(packs: Array<{ id: string; name: string; description: string; cards: CardDef[] }>): void {
+  dlcCards = Object.fromEntries(packs.flatMap((p) => p.cards.map((c) => [c.id, c] as const)));
+  builtinPacks = packs.map((p) => ({ id: p.id, name: p.name, description: p.description, cardIds: p.cards.map((c) => c.id) }));
+  version++;
+}
+export const isBuiltinPack = (id: string): boolean => builtinPacks.some((p) => p.id === id);
+
 function load(): Homebrew {
   try {
     const raw = localStorage.getItem(KEY);
@@ -49,7 +61,7 @@ const newCardMap = () => Object.fromEntries((store.newCards ?? []).map((c) => [c
 
 /** A card, with homebrew override merged over base/new/corpus. */
 export function getCard(id: string): CardDef | undefined {
-  const base = BASE_CARDS[id] ?? newCardMap()[id] ?? corpusCards[id];
+  const base = BASE_CARDS[id] ?? newCardMap()[id] ?? corpusCards[id] ?? dlcCards[id];
   if (!base) return undefined;
   const ov = store.cardOverrides[id];
   return ov ? { ...base, ...ov } : base;
@@ -107,7 +119,7 @@ function loadPacks(): PacksState {
 }
 function persistPacks() { try { localStorage.setItem(PACK_KEY, JSON.stringify(packStore)); } catch { /* ignore */ } version++; }
 
-export const listPacks = (): Pack[] => packStore.packs;
+export const listPacks = (): Pack[] => [...builtinPacks, ...packStore.packs];
 export const activePackIds = (): string[] => packStore.active;
 
 export function createPack(name: string, description: string, cardIds: string[]): string {
@@ -130,16 +142,16 @@ export function toggleActivePack(id: string) {
   persistPacks();
 }
 
-/** Every card id available to browse for a pack (base seed + homebrew + the Crystal corpus). */
+/** Every card id available to browse (base seed + homebrew + the Crystal corpus + built-in DLC). */
 export function libraryCardIds(): string[] {
-  return [...SEED_DECK.map((c) => c.id), ...(store.newCards ?? []).map((c) => c.id), ...Object.keys(corpusCards)];
+  return [...SEED_DECK.map((c) => c.id), ...(store.newCards ?? []).map((c) => c.id), ...Object.keys(corpusCards), ...Object.keys(dlcCards)];
 }
 
 /** The deck source: the union of active packs' cards (if any), else the default seed+homebrew pool. */
 export function deckCardIds(): string[] {
   if (packStore.active.length) {
     const ids = new Set<string>();
-    for (const p of packStore.packs) if (packStore.active.includes(p.id)) for (const c of p.cardIds) ids.add(c);
+    for (const p of listPacks()) if (packStore.active.includes(p.id)) for (const c of p.cardIds) ids.add(c);
     const resolvable = [...ids].filter((id) => !!getCard(id));
     if (resolvable.length) return resolvable;
   }
@@ -148,7 +160,7 @@ export function deckCardIds(): string[] {
 
 /** Export a pack as self-contained JSON (embeds its resolved card defs) for sharing. */
 export function exportPack(id: string): string {
-  const p = packStore.packs.find((x) => x.id === id);
+  const p = listPacks().find((x) => x.id === id);
   if (!p) return '';
   const cards = p.cardIds.map((cid) => getCard(cid)).filter(Boolean) as CardDef[];
   return JSON.stringify({ kind: 'gbg-dlc-pack', name: p.name, description: p.description, cards }, null, 2);

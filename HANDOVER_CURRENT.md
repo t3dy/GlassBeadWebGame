@@ -5,6 +5,26 @@
 
 ## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live**
 
+### SOCIETAS MAGICA DLC + DRAW PANEL (added 2026-06-18)
+- **Built-in DLC infrastructure** (`content.ts`): `registerDlc()` / `isBuiltinPack()`; built-in packs
+  surface in the ▦ Packs modal as activatable/exportable DLC (no edit/delete; cards resolve via
+  `getCard`). `listPacks`/`deckCardIds`/`exportPack`/`libraryCardIds` now span built-ins too.
+- **Societas Magica** (`src/data/dlc/societasMagica.ts`): two packs — **Historical Figures** (12:
+  Hermes→Paracelsus, with planetary/disciplinary attributes so they're live in the relation engine)
+  and **Contemporary Scholars** (10: Kieckhefer, Fanger, Klaassen, Page, Láng, Boudet, Bailey, Davies,
+  Véronèse, Rider — each cited to a real signature work). Playable either/both; drawable or on the board.
+  *Starter set — the user will provide the definitive curated list; replace this file or import.*
+- **🎲 Draw panel** (App `DrawModal`): filter the library by **search + card type**, see the pool
+  count, then **Draw 5 random** / **Redraw hand** / **click a card to draw it**. Answers review 014's
+  "gate the draw / restore agency."
+- **Verified live:** both DLC packs show (DLC tag); activating Historical Figures → a figures-only deck;
+  Draw filter "Kieckhefer" → pick into hand; filter "Societas Magica"+figure (22) → Draw 5. Test
+  `content.test.ts` (DLC register + deck-from-pack + sourceRefs). **`npm test` 20/20; build clean.**
+- **Coordination:** committed only my files (shared single worktree); left the other window's
+  tickets/TDD/architecture docs + CLAUDE.md edits untouched.
+- **Next:** scholar↔figure relations; a draw cost/cap for competitive pacing; ingest the user's
+  definitive Societas list.
+
 ### UNIFIED ESOTERIC ONTOLOGY — the "Crystal" data layer (added 2026-06-18)
 The standalone study DBs are now fused into one queryable ontology that feeds game assets. See
 [docs/UNIFIED_ONTOLOGY.md](docs/UNIFIED_ONTOLOGY.md).

@@ -41,7 +41,10 @@ and deliberately **bracketed** behind this core.
    glyphs, copy (⧉) any explanation into your own card, or forge a brand-new card straight to your hand.
 7. **DLC Packs (▦):** curate a topical deck (e.g. a *Medieval Alchemists Pack*) by searching the whole
    library — base cards, the unified-ontology "Crystal", and your own cards — then activate it to build
-   your deck, and export/import packs as shareable JSON.
+   your deck, and export/import packs as shareable JSON. Built-in DLC ships too: the **Societas Magica**
+   packs (Historical Figures + Contemporary Scholars), playable either or both.
+8. **Draw (🎲):** filter the pool by search and card type, then *Draw 5 random*, *Redraw* your hand, or
+   click to draw a specific card — narrow as much as you like, or just pick the one you want.
 6. **End turn** to draw back up (in two-player, pass the device behind a hidden-hands screen).
 7. The Game concludes when the universe is full or a player concludes it; the higher synthesis wins.
 

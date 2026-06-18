@@ -4,10 +4,15 @@ import type { CardDef, CellId, GameState, Glyph, Move } from './engine/types';
 import { BANKS, GLYPHS } from './engine/glyphBank';
 import { OCCUPATIONS, OCC_MAP } from './engine/occupations';
 import { getCard, getGlyph, editCard, editGlyph, createCard, corpusCardIds,
-  libraryCardIds, listPacks, activePackIds, createPack, updatePack, deletePack, toggleActivePack, exportPack, importPack, type Pack } from './engine/content';
+  libraryCardIds, listPacks, activePackIds, createPack, updatePack, deletePack, toggleActivePack, exportPack, importPack,
+  registerDlc, isBuiltinPack, type Pack } from './engine/content';
 import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
 import { activateCorpus, type CorpusActivation } from './data/corpus';
+import { SOCIETAS_MAGICA_PACKS } from './data/dlc/societasMagica';
+
+// Register the built-in DLC (e.g. the Societas Magica packs) once, at module load.
+registerDlc(SOCIETAS_MAGICA_PACKS);
 
 type Armed = { kind: 'card' | 'glyph' | 'meeple'; id: string } | null;
 type PanelView = { type: 'glyph' | 'occupation' | 'bead'; id: string } | null;
@@ -19,6 +24,7 @@ export default function App() {
   const [panel, setPanel] = useState<PanelView>(null);
   const [creating, setCreating] = useState(false);
   const [packsOpen, setPacksOpen] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
   const [, setHbv] = useState(0); // bump to re-render after homebrew edits
   const [corpus, setCorpus] = useState<CorpusActivation | null>(null);
   const drag = useRef<Armed>(null);
@@ -54,6 +60,13 @@ export default function App() {
     if (!ids.length) return;
     giveToHand(ids[Math.floor(Math.random() * ids.length)]);
   }
+  /** Draw n random cards from a (filtered) pool into the active hand; optionally replace it (redraw). */
+  function drawInto(ids: string[], n: number, replace: boolean) {
+    if (!ids.length) return;
+    const picks: string[] = [];
+    for (let i = 0; i < n; i++) picks.push(ids[Math.floor(Math.random() * ids.length)]);
+    setState((s) => s && { ...s, players: s.players.map((p, i) => (i === s.active ? { ...p, hand: replace ? picks : [...p.hand, ...picks] } : p)) });
+  }
 
   return (
     <div className="app">
@@ -71,6 +84,7 @@ export default function App() {
           <button className="btn ghost" onClick={() => start(state.players.length)}>New</button>
           <button className="btn pen" title="Print Shop · forge a new card" onClick={() => setCreating(true)}>✎ New card</button>
           <button className="btn" title="DLC Packs · curate decks by topic" onClick={() => setPacksOpen(true)}>▦ Packs{activePackIds().length ? ` (${activePackIds().length})` : ''}</button>
+          <button className="btn" disabled={state.phase !== 'play'} title="Draw · filter the pool, draw 5 random, redraw, or pick a card" onClick={() => setDrawOpen(true)}>🎲 Draw</button>
           {corpus?.ok && (
             <button className="btn" disabled={state.phase !== 'play'} title="Draw a card from the unified esoteric corpus — adjacent corpus beads surface real, cited situations" onClick={drawFromCrystal}>✦ Draw from the Crystal</button>
           )}
@@ -150,6 +164,9 @@ export default function App() {
 
       {creating && <NewCardModal onClose={() => setCreating(false)} onCreate={(c) => { createCard(c); giveToHand(c.id); bump(); setCreating(false); }} />}
       {packsOpen && <PacksModal corpusOk={!!corpus?.ok} onClose={() => { setPacksOpen(false); bump(); }} />}
+      {drawOpen && <DrawModal corpusOk={!!corpus?.ok}
+        onDrawRandom={(ids, replace) => drawInto(ids, state.handSize, replace)}
+        onPick={(id) => giveToHand(id)} onClose={() => setDrawOpen(false)} />}
       {state.phase === 'handoff' && (
         <Overlay>
           <h2>Pass the device</h2>
@@ -375,15 +392,18 @@ function PacksModal({ corpusOk, onClose }: { corpusOk: boolean; onClose: () => v
         Print Shop cards. Tick a pack <b>active</b> to build the deck for your next New Game; export to share.</p>
       <div className="packlist">
         {packs.length === 0 && <p className="muted">No packs yet — create one, e.g. a “Medieval Alchemists Pack”.</p>}
-        {packs.map((p) => (
-          <div key={p.id} className="packrow">
-            <label className="packactive"><input type="checkbox" checked={active.includes(p.id)} onChange={() => { toggleActivePack(p.id); refresh(); }} /> active</label>
-            <span className="packname">{p.name}</span><span className="muted">{p.cardIds.length} cards</span>
-            <button className="btn ghost sm" onClick={() => setEditing(p.id)}>Edit</button>
-            <button className="btn ghost sm" onClick={() => copy(exportPack(p.id))} title="Copy export JSON to clipboard">Export ⧉</button>
-            <button className="btn ghost sm" onClick={() => { deletePack(p.id); refresh(); }}>Delete</button>
-          </div>
-        ))}
+        {packs.map((p) => {
+          const builtin = isBuiltinPack(p.id);
+          return (
+            <div key={p.id} className="packrow">
+              <label className="packactive"><input type="checkbox" checked={active.includes(p.id)} onChange={() => { toggleActivePack(p.id); refresh(); }} /> active</label>
+              <span className="packname">{p.name}{builtin && <span className="dlctag">DLC</span>}</span><span className="muted">{p.cardIds.length} cards</span>
+              {!builtin && <button className="btn ghost sm" onClick={() => setEditing(p.id)}>Edit</button>}
+              <button className="btn ghost sm" onClick={() => copy(exportPack(p.id))} title="Copy export JSON to clipboard">Export ⧉</button>
+              {!builtin && <button className="btn ghost sm" onClick={() => { deletePack(p.id); refresh(); }}>Delete</button>}
+            </div>
+          );
+        })}
       </div>
       <details className="importbox">
         <summary>Import a shared pack (paste JSON)</summary>
@@ -448,6 +468,59 @@ function PackBuilder({ corpusOk, pack, onDone }: { corpusOk: boolean; pack?: Pac
         <button className="btn gold big" onClick={save} disabled={!name || selected.length === 0}>Save pack</button>
         <button className="btn big" onClick={onDone}>Cancel</button>
       </div>
+    </Overlay>
+  );
+}
+
+const CLASSES = ['any', 'figure', 'text', 'concept', 'symbol'] as const;
+
+function DrawModal({ corpusOk, onDrawRandom, onPick, onClose }: {
+  corpusOk: boolean; onDrawRandom: (ids: string[], replace: boolean) => void; onPick: (id: string) => void; onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [cls, setCls] = useState<(typeof CLASSES)[number]>('any');
+  const lib = libraryCardIds();
+  const ql = q.trim().toLowerCase();
+  const pool = lib.filter((id) => {
+    const c = getCard(id); if (!c) return false;
+    if (cls !== 'any' && c.cls !== cls) return false;
+    if (!ql) return true;
+    const hay = `${c.name} ${c.text} ${c.sourceRef} ${Object.values(c.correspondences).join(' ')}`.toLowerCase();
+    return hay.includes(ql);
+  });
+  const shown = pool.slice(0, 60);
+
+  return (
+    <Overlay>
+      <h2>🎲 Draw</h2>
+      <p className="muted">Filter the pool as much (or as little) as you like, then draw five at random,
+        redraw your hand, or pick a specific card. Pool: the whole library{corpusOk ? '' : ' (Crystal still loading…)'}.</p>
+      <div className="panel info editor wide packbuilder">
+        <div className="drawfilters">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="search: alchem · Ficino · mercury · Societas Magica…" />
+          <select value={cls} onChange={(e) => setCls(e.target.value as (typeof CLASSES)[number])}>
+            {CLASSES.map((c) => <option key={c} value={c}>{c === 'any' ? 'any type' : c}</option>)}
+          </select>
+        </div>
+        <div className="packsearchhead">{pool.length} card{pool.length === 1 ? '' : 's'} in the filtered pool</div>
+        <div className="overlay-controls" style={{ justifyContent: 'flex-start' }}>
+          <button className="btn gold" disabled={!pool.length} onClick={() => { onDrawRandom(pool, false); onClose(); }}>🎲 Draw 5 random</button>
+          <button className="btn" disabled={!pool.length} onClick={() => { onDrawRandom(pool, true); onClose(); }}>♻ Redraw hand</button>
+        </div>
+        <div className="packresults">
+          {shown.map((id) => {
+            const c = getCard(id); if (!c) return null;
+            return (
+              <button key={id} className="packcard" onClick={() => { onPick(id); onClose(); }} title={`${c.text} — ${c.sourceRef}`}>
+                <span className="pc-name">{c.glyphs.map((g) => getGlyph(g)?.glyph).join(' ')} {c.name}</span>
+                <span className="muted pc-src">{c.cls} · {c.sourceRef}</span>
+              </button>
+            );
+          })}
+          {pool.length > shown.length && <p className="muted">…and {pool.length - shown.length} more — refine the filter, or draw at random.</p>}
+        </div>
+      </div>
+      <div className="overlay-controls"><button className="btn big" onClick={onClose}>Done</button></div>
     </Overlay>
   );
 }
