@@ -1,6 +1,7 @@
 import type { CardDef, Glyph } from './types';
 import { CARDS as BASE_CARDS, SEED_DECK } from '../data/seedDeck';
 import { GLYPHS as BASE_GLYPHS } from './glyphBank';
+import { enrichGlyphs } from './glyphAttribution';
 
 // CONTENT LAYER — merges base data with the player's "homebrew" edits (the Print Shop / level
 // editor). Every card and glyph is editable; players can also create new cards. Edits persist in
@@ -22,7 +23,9 @@ let version = 0; // bumped on any edit so React can re-render
 // hand-pool so thousands of library cards don't flood the deck — they are a searchable crystal.
 let corpusCards: Record<string, CardDef> = {};
 export function registerCorpusCards(cards: CardDef[]): void {
-  corpusCards = Object.fromEntries(cards.map((c) => [c.id, c]));
+  // Attribute glyphs from each card's correspondences so corpus beads are real game pieces
+  // (see glyphAttribution.ts + docs/CARD_STYLE_GUIDE.md). Respects any hand-authored glyphs.
+  corpusCards = Object.fromEntries(cards.map((c) => [c.id, enrichGlyphs(c)]));
   version++;
 }
 export const corpusCardIds = (): string[] => Object.keys(corpusCards);

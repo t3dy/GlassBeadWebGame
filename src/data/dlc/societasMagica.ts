@@ -1,18 +1,21 @@
 import type { CardDef } from '../../engine/types';
 
-// SOCIETAS MAGICA DLC — a starter, citable selection of the figures, texts, and contemporary
-// scholars studied within the academic study of pre-modern learned magic (the Societas Magica and
-// its journal *Magic, Ritual, and Witchcraft*). Two packs: HISTORICAL FIGURES and CONTEMPORARY
-// SCHOLARS. Figures carry planetary/disciplinary attributes so they connect in the relation engine
-// (e.g. Ficino beside a Venus bead surfaces his benefic remedy). This is a starter set the user will
-// refine/replace with their own curated list — edit in the Print Shop or swap this file's contents.
+// SOCIETAS MAGICA DLC — the FIGURES, CONCEPTS, and PLACES of pre-modern learned magic (the subject
+// matter studied in the academic field of magic studies). Per the user's instruction we name only
+// the historical subjects, never living scholars. All cards are grounded + cited and carry glyph
+// attributions per docs/CARD_STYLE_GUIDE.md so they play as real game pieces. A starter exemplar set —
+// the corpus (data/corpus) supplies the thousands; these demonstrate the style.
 
 interface DlcPack { id: string; name: string; description: string; cards: CardDef[] }
 
 const F = (id: string, name: string, text: string, glyphs: string[], corr: Record<string, string>, sourceRef: string, portal?: string): CardDef =>
-  ({ id: `sm:${id}`, cls: 'figure', name, text, glyphs, correspondences: { ...corr, society: 'Societas Magica' }, sourceRef, ...(portal ? { portal } : {}) });
+  ({ id: `sm:${id}`, cls: 'figure', name, text, glyphs, correspondences: { ...corr, field: 'learned magic' }, sourceRef, ...(portal ? { portal } : {}) });
+const C = (id: string, name: string, text: string, glyphs: string[], corr: Record<string, string>, sourceRef = 'alchemical & magical tradition'): CardDef =>
+  ({ id: `sm:c-${id}`, cls: 'concept', name, text, glyphs, correspondences: { ...corr, field: 'learned magic' }, sourceRef });
+const L = (id: string, name: string, text: string, glyphs: string[], corr: Record<string, string>, sourceRef = 'history of magic'): CardDef =>
+  ({ id: `sm:l-${id}`, cls: 'concept', name, text, glyphs, correspondences: { ...corr, kind: 'place', field: 'learned magic' }, sourceRef });
 
-const HISTORICAL: CardDef[] = [
+const FIGURES: CardDef[] = [
   F('hermes', 'Hermes Trismegistus', 'Legendary "thrice-great" author of the Hermetica; figurehead of the prisca theologia that licensed Renaissance magic.', ['mercury-spirit', 'sol'], { discipline: 'Hermetica' }, 'Corpus Hermeticum (trans. Ficino, 1471)', 'hermeticdb'),
   F('ficino', 'Marsilio Ficino', 'Florentine Neoplatonist; his De Vita prescribes astral talismans and planetary music to draw down celestial virtues against melancholy.', ['sol', 'jupiter', 'venus'], { planet: 'Sun', discipline: 'Renaissance magic' }, 'Ficino, De Vita Libri Tres (1489)', 'rmdb'),
   F('pico', 'Giovanni Pico della Mirandola', 'Author of the 900 Conclusiones; founder of Christian Kabbalah, who held that magic and Kabbalah prove the divinity of Christ.', ['mercury-spirit'], { discipline: 'Kabbalah' }, 'Pico, Conclusiones (1486)'),
@@ -27,23 +30,38 @@ const HISTORICAL: CardDef[] = [
   F('paracelsus', 'Paracelsus', 'Physician-magus of the tria prima; his Archidoxis magica binds talismanic, natural, and chymical magic to medicine.', ['sulphur', 'salt', 'mercury-spirit'], { discipline: 'alchemy', principle: 'Sulphur' }, 'Paracelsus, Archidoxis magica (attrib.)', 'hermeticdb'),
 ];
 
-const S = (id: string, name: string, text: string, focus: string, sourceRef: string): CardDef =>
-  ({ id: `sm:sch-${id}`, cls: 'figure', name, text, glyphs: ['mercury-spirit'], correspondences: { discipline: 'history of magic', topic: focus, society: 'Societas Magica' }, sourceRef });
+const CONCEPTS: CardDef[] = [
+  C('magnum-opus', 'The Great Work', 'The alchemists’ total labour — perfecting base matter into the Stone, and the operator’s soul along with it.', ['sol'], { discipline: 'alchemy', stage: 'opus' }),
+  C('prima-materia', 'Prima Materia', 'The formless first matter, despised and everywhere, on which the whole Work must begin.', ['earth', 'mercury-spirit'], { discipline: 'alchemy' }),
+  C('nigredo', 'Nigredo', 'The blackening — putrefaction and dissolution, the necessary death before any rebirth.', ['saturn'], { stage: 'nigredo', operation: 'Putrefaction' }),
+  C('albedo', 'Albedo', 'The whitening — washing and purification under the Moon, the dawn after the dark.', ['luna'], { stage: 'albedo' }),
+  C('rubedo', 'Rubedo', 'The reddening — the marriage made permanent, completion in the red Stone.', ['sol'], { stage: 'rubedo', operation: 'Projection' }),
+  C('coniunctio', 'Coniunctio', 'The chymical wedding of Sol and Luna into one body — the reconciliation of opposites.', ['sol', 'luna'], { operation: 'Conjunction' }),
+  C('solve-coagula', 'Solve et Coagula', 'Dissolve and recombine — the breathing rhythm of every alchemical operation.', ['taurus', 'libra'], { discipline: 'alchemy' }),
+  C('quintessence', 'Quintessence', 'The fifth essence distilled out of the four elements — incorruptible, the vehicle of virtue.', ['mercury-spirit'], { discipline: 'alchemy' }),
+  C('macrocosm', 'Microcosm & Macrocosm', '“As above, so below” — the human being mirrors the cosmos, and so can be worked upon by the stars.', ['sol', 'mercury-spirit'], { discipline: 'Hermetica' }),
+  C('sympathy', 'Sympathy & Antipathy', 'The hidden loves and hatreds binding all things — the natural magician’s lever upon the world.', ['venus', 'mars'], { discipline: 'natural magic' }),
+  C('signatures', 'The Doctrine of Signatures', 'Each created thing wears an outward sign of its inner virtue, for the wise to read.', ['venus'], { discipline: 'natural magic' }),
+  C('spiritus-mundi', 'Spiritus Mundi', 'The world-soul, the astral light — the subtle medium through which celestial powers descend.', ['mercury-spirit', 'air'], { discipline: 'Neoplatonism' }),
+  C('theurgy', 'Theurgy', 'Ritual ascent of the soul toward union with the divine — magic as worship, not coercion.', ['sol', 'mercury-spirit'], { discipline: 'Neoplatonism' }),
+  C('talisman', 'Talismanic Magic', 'Capturing a star’s virtue in an image cut at the proper hour, that it might act below.', ['saturn', 'sol'], { discipline: 'astral magic' }),
+];
 
-const SCHOLARS: CardDef[] = [
-  S('kieckhefer', 'Richard Kieckhefer', 'Mapped the "clerical underworld" of medieval necromancy and the common tradition of learned magic.', 'medieval magic', 'Kieckhefer, Magic in the Middle Ages (1989)'),
-  S('fanger', 'Claire Fanger', 'Editor of Conjuring Spirits and Invoking Angels; recovered the devotional angelic magic of John of Morigny and the Ars Notoria.', 'angelic / notory art', 'Fanger (ed.), Invoking Angels (2012)'),
-  S('klaassen', 'Frank Klaassen', 'Traced the transformation of ritual and natural magic across the medieval-to-Renaissance manuscript record.', 'magic manuscripts', 'Klaassen, The Transformations of Magic (2013)'),
-  S('page', 'Sophie Page', 'Studied monastic magic — the astrological and image magic copied within the cloister of St Augustine’s, Canterbury.', 'monastic magic', 'Page, Magic in the Cloister (2013)'),
-  S('lang', 'Benedek Láng', 'Surveyed the circulation of magic texts among the learned of late-medieval Central Europe.', 'Central European magic', 'Láng, Unlocked Books (2008)'),
-  S('boudet', 'Jean-Patrice Boudet', 'Charted the medieval field "between science and nigromancy" — astrology, divination, and magic in the Latin West.', 'astrology & magic', 'Boudet, Entre science et nigromance (2006)'),
-  S('bailey', 'Michael D. Bailey', 'Historian of magic, superstition, and witchcraft; a founding voice of the journal Magic, Ritual, and Witchcraft.', 'superstition & witchcraft', 'Bailey, Magic and Superstition in Europe (2007)'),
-  S('davies', 'Owen Davies', 'Wrote the history of the grimoire — the books of magic themselves, from antiquity to the present.', 'grimoires', 'Davies, Grimoires: A History of Magic Books (2009)'),
-  S('veronese', 'Julien Véronèse', 'Critical editor of the Ars Notoria and student of the Liber Iuratus and Solomonic ritual magic.', 'notory art', 'Véronèse, L’Ars notoria au Moyen Âge (2007)'),
-  S('rider', 'Catherine Rider', 'Examined magic in everyday medieval life — impotence, healing, and the pastoral response to popular magic.', 'everyday magic', 'Rider, Magic and Impotence in the Middle Ages (2006)'),
+const PLACES: CardDef[] = [
+  L('alexandria', 'Alexandria', 'Crucible of the Hermetica and of Greco-Egyptian alchemy, where Greek philosophy met Egyptian craft.', ['mercury-spirit'], { discipline: 'Hermetica' }),
+  L('harran', 'Harran', 'The Sabian city whose surviving star-worship fed the astral magic of the medieval Arabic world.', ['saturn'], { discipline: 'astral magic' }),
+  L('toledo', 'Toledo', 'Where twelfth-century translators turned the Arabic sciences — and their magic — into Latin.', ['mercury'], { discipline: 'translation' }),
+  L('florence', 'Florence', 'Ficino’s Platonic Academy under Medici patronage revived Plato, Plotinus, and the Hermetica.', ['sol', 'jupiter'], { discipline: 'Renaissance magic' }),
+  L('cracow', 'Cracow', 'A university hub where the learned magic of Central Europe was copied, taught, and debated.', ['mercury'], { discipline: 'magic manuscripts' }),
+  L('prague', 'Prague', 'Rudolf II’s imperial court drew alchemists, astrologers, and John Dee to its laboratories.', ['mercury', 'saturn'], { discipline: 'alchemy' }),
+  L('padua', 'Padua', 'Seat of astrological medicine, where the stars were read into the diagnosis of the body.', ['saturn'], { discipline: 'astrological medicine' }),
+  L('sponheim', 'Sponheim', 'Trithemius’s Benedictine abbey, famed for a library that drew scholars from across Europe.', ['mercury'], { discipline: 'monastic learning' }),
+  L('mortlake', 'Mortlake', 'John Dee’s house on the Thames held the greatest private library in Elizabethan England.', ['luna', 'mercury'], { discipline: 'angelic magic' }),
+  L('montpellier', 'Montpellier', 'A medieval school of medicine where physic was bound to astrology and the virtues of herbs.', ['venus'], { discipline: 'astral medicine' }),
 ];
 
 export const SOCIETAS_MAGICA_PACKS: DlcPack[] = [
-  { id: 'dlc:sm-figures', name: 'Societas Magica · Historical Figures', description: 'Pre-modern figures of learned magic studied by the Societas Magica — Hermes to Paracelsus.', cards: HISTORICAL },
-  { id: 'dlc:sm-scholars', name: 'Societas Magica · Contemporary Scholars', description: 'Modern historians of pre-modern magic and their signature works.', cards: SCHOLARS },
+  { id: 'dlc:sm-figures', name: 'Societas Magica · Figures of Learned Magic', description: 'Pre-modern figures of learned magic — Hermes to Paracelsus.', cards: FIGURES },
+  { id: 'dlc:sm-concepts', name: 'Societas Magica · Concepts of the Art', description: 'The governing ideas of alchemy and learned magic — the Great Work, the coniunctio, sympathy & antipathy…', cards: CONCEPTS },
+  { id: 'dlc:sm-places', name: 'Societas Magica · Places of Learned Magic', description: 'The cities, courts, and libraries where magic was made, translated, and taught.', cards: PLACES },
 ];

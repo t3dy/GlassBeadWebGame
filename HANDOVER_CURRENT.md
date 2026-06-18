@@ -5,6 +5,21 @@
 
 ## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live**
 
+### CARD STYLE GUIDE + GLYPH ATTRIBUTION + PRIVACY (added 2026-06-18)
+- **[docs/CARD_STYLE_GUIDE.md](docs/CARD_STYLE_GUIDE.md)** — voice/length, CardDef shape, the canonical
+  **glyph-attribution table**, correspondence vocabulary, importance-selection (§6), and the **privacy
+  rule** (§0: name only historical figures/concepts/places — never living scholars).
+- **Glyph attribution at scale** — `src/engine/glyphAttribution.ts` (`attributeGlyphs`/`enrichGlyphs`)
+  applied in `content.ts` `registerCorpusCards`, so the ~931+ corpus cards now carry glyphs derived
+  from operation/planet/element/principle/stage (English + Latin) and, for non-figures, the name.
+  Respects hand-authored glyphs; caps at 4; skips figure names (no false hits). **Verified live:**
+  corpus "putrefactio"→♏, "calcinatio"→♈, "Albedo"→☽. Tests `glyphAttribution.test.ts`.
+- **Privacy rework:** the Societas Magica DLC dropped the living-scholars pack; now **Figures ·
+  Concepts · Places** of learned magic (`src/data/dlc/societasMagica.ts`), all historical & cited,
+  with style-guide glyphs. Pack ids: `dlc:sm-figures` / `dlc:sm-concepts` / `dlc:sm-places`.
+- **`npm test` 26/26; build clean.** Committed only my files (shared worktree). NEXT: apply §6
+  importance-selection per DB; mirror the glyph rules into `derive.ts`; concept/place↔figure relations.
+
 ### SOCIETAS MAGICA DLC + DRAW PANEL (added 2026-06-18)
 - **Built-in DLC infrastructure** (`content.ts`): `registerDlc()` / `isBuiltinPack()`; built-in packs
   surface in the ▦ Packs modal as activatable/exportable DLC (no edit/delete; cards resolve via
