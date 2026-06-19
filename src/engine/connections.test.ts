@@ -25,6 +25,13 @@ describe('connected-card draws', () => {
     expect(conns.length).toBeGreaterThan(0);
   });
 
+  it('the RAW pack links its novels and reaches the base seed (Wilson → Leary’s circuits)', () => {
+    registerDlc(ALL_DLC_PACKS);
+    const conns = connectedCards('rawd:wilson');
+    expect(conns.some((c) => c.id === 'rawd:illuminatus')).toBe(true);
+    expect(conns.some((c) => c.id === 'leary:circuit')).toBe(true); // cross-pack to the seed deck
+  });
+
   it('every DLC pack card carries a sourceRef (Grounding Rule)', () => {
     for (const p of ALL_DLC_PACKS) for (const c of p.cards) expect(c.sourceRef.length).toBeGreaterThan(0);
   });
