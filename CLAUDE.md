@@ -77,6 +77,23 @@ Fost essay, and the Leary/RAW eight-circuit material. **No non-source filler.** 
 string and have no grounded source, flag it in [HANDOVER_CURRENT.md](HANDOVER_CURRENT.md) rather
 than inventing generic copy. See [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md#the-grounding-rule).
 
+## Working disciplines (standing process — read before you build)
+
+- **Tickets.** Track all bugs, features, debt, and ideas in [docs/tickets/](docs/tickets/TICKETS.md). On
+  any non-trivial task: **check the board first**; claim a matching ticket or open one (`TEMPLATE.md`).
+  When you find a problem you won't fix now, file a `backlog` ticket — don't bury a TODO in code. The
+  board is the single source of truth for "what's wrong / what's next." Workflow: [tickets/README.md](docs/tickets/README.md).
+- **Test-Driven Development.** Work **test-first**: write a failing test (red), make it pass (green),
+  refactor. A change is not *done* until a test fails without it and passes with it, **and** `npm run
+  build` is clean (the type-check gate catches what runtime tests miss). See [docs/TESTING.md](docs/TESTING.md).
+  Keep logic **pure** and out of the React view so it stays testable (the **Deckard Boundary**).
+- **Architecture.** The living audit is [docs/ARCHITECTURE_AUDIT.md](docs/ARCHITECTURE_AUDIT.md); update
+  its findings table as tickets close. The game is a *Procedural Engine* fed by *Knowledge Portals* — see
+  the ecosystem theory in `C:\Dev\wiki\concept_database_theories.md`.
+- **Explain with Universal Design for Learning.** When documenting, offer multiple representations
+  (plain-language + technical + a diagram/table) and a glossary, so docs serve every reader. The wiki's
+  "Glossary for Undergraduates" blocks are the model.
+
 ## House conventions (workspace-wide)
 
 - Prioritize **clarity, logical structure, and accessibility** in every interaction (the *Magister Ludi* ethos).

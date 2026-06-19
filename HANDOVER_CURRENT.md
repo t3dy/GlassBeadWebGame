@@ -3,7 +3,34 @@
 > Live status doc. The Magister Ludi agent updates this as work lands. Read it after
 > [CLAUDE.md](CLAUDE.md) to know what exists and what's next.
 
-## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live**
+## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live** + **Accounts & cloud sync (Phase 5/6) — code complete, awaiting Supabase provisioning**
+
+### ACCOUNTS + CLOUD PERSISTENCE + NAV SHELL (added 2026-06-18)
+Full login + auto-sync layer, **local-first / graceful guest mode** (runs with no env vars). Brings
+forward [DEPLOYMENT](docs/DEPLOYMENT.md) Phase 5/6 backend without blocking solo play.
+- **Auth (username + password, email optional):** `src/store/supabase.ts` (client; `isCloudConfigured`
+  false → app stays fully local), `src/auth/authClient.ts` (username→synthetic `…@gbg.local` email;
+  `signUp/signIn/signOut/fetchProfile`; pure helpers `isValidUsername`/`slugifyUsername`/`usernameToEmail`),
+  `src/auth/AuthContext.tsx` (React provider; wires Supabase session → pull/teardown sync),
+  `src/auth/AuthModal.tsx` ("Enter Castalia" / "Join the Order").
+- **Cloud sync (`src/store/sync.ts`):** pull-on-login (cloud wins, else push local up so guest work is
+  kept), **debounced auto-push** of the user library + live board. Status observable → nav sync chip.
+  Saved-games API (`listGames/loadGame/saveGameAs/renameGame/deleteGame`).
+- **content.ts seam:** `onContentChange` notifier (drives push; restore deliberately silent to avoid a
+  loop), `exportUserLibrary/importUserLibrary/isLibraryEmpty/rehydrate`. `touch()` replaces bare
+  `version++` in the two user-mutation persist fns.
+- **UI:** `src/ui/NavBar.tsx` (account menu + sync chip + Saves), `src/ui/SavesModal.tsx` (board states
+  as "spaces in memory"), `src/ui/useSyncStatus.ts`. Wired in `main.tsx` (AuthProvider) + `App.tsx`
+  (NavBar on both Setup and play screens; cloud board applied on login; `pushGame` in the save effect).
+- **Backend:** `supabase/migrations/0001_init.sql` (profiles · user_library · games; owner-only RLS;
+  `username_available` RPC). `.env.example` + `src/vite-env.d.ts` added; `.gitignore` already ignores `.env`.
+- **Verified:** `npm run build` clean; `npm test` **37/37** (new: `authClient.test.ts` ×4,
+  `userLibrary.test.ts` ×3); **live in browser (guest mode):** nav renders "Guest · local only", zero
+  console errors, full game intact (screenshot taken).
+- **TO GO LIVE (user action):** provision Supabase + run the SQL + disable email confirm + set the two
+  `VITE_` env vars (local `.env` + Vercel) — see [DEPLOYMENT §"Turning on cloud accounts"](docs/DEPLOYMENT.md).
+- **NEXT:** profile/account page (change username/password, set recovery email); per-table normalization
+  of the library if it grows; published/world-readable games for the shared crystal; realtime co-op (Phase 6).
 
 ### CARD STYLE GUIDE + GLYPH ATTRIBUTION + PRIVACY (added 2026-06-18)
 - **[docs/CARD_STYLE_GUIDE.md](docs/CARD_STYLE_GUIDE.md)** — voice/length, CardDef shape, the canonical

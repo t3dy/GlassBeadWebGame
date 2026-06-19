@@ -55,10 +55,25 @@ function load(): Homebrew {
 }
 function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(store)); } catch { /* ignore */ }
-  version++;
+  touch();
 }
 
 export const homebrewVersion = () => version;
+
+// --- change notification (drives cloud sync) ---------------------------------
+// User mutations (Print Shop edits, pack changes) call touch(): it bumps the
+// render version AND notifies subscribers (the sync engine debounces a cloud
+// push). Restoring from the cloud uses importUserLibrary(), which deliberately
+// does NOT notify — that would echo straight back as another push.
+type Listener = () => void;
+const listeners = new Set<Listener>();
+function touch() { version++; for (const cb of listeners) { try { cb(); } catch { /* ignore */ } } }
+
+/** Subscribe to user-content mutations. Returns an unsubscribe fn. */
+export function onContentChange(cb: Listener): () => void {
+  listeners.add(cb);
+  return () => { listeners.delete(cb); };
+}
 
 const newCardMap = () => Object.fromEntries((store.newCards ?? []).map((c) => [c.id, c]));
 
@@ -120,7 +135,7 @@ function loadPacks(): PacksState {
   } catch { /* ignore */ }
   return { packs: [], active: [] };
 }
-function persistPacks() { try { localStorage.setItem(PACK_KEY, JSON.stringify(packStore)); } catch { /* ignore */ } version++; }
+function persistPacks() { try { localStorage.setItem(PACK_KEY, JSON.stringify(packStore)); } catch { /* ignore */ } touch(); }
 
 export const listPacks = (): Pack[] => [...builtinPacks, ...packStore.packs];
 export const activePackIds = (): string[] => packStore.active;
@@ -168,6 +183,52 @@ export function exportPack(id: string): string {
   const cards = p.cardIds.map((cid) => getCard(cid)).filter(Boolean) as CardDef[];
   return JSON.stringify({ kind: 'gbg-dlc-pack', name: p.name, description: p.description, cards }, null, 2);
 }
+// --- cloud-sync seam: the whole user library as one serializable blob ---------
+// The sync engine upserts exportUserLibrary() to Supabase (user_library.data) on
+// edits, and on login writes the cloud copy back via importUserLibrary().
+
+export interface UserLibrary { homebrew: Homebrew; packs: PacksState }
+
+/** Snapshot of everything the player has created/edited (cards, glyphs, packs). */
+export function exportUserLibrary(): UserLibrary {
+  return { homebrew: store, packs: packStore };
+}
+
+/** True when the local library is empty (used to decide push-vs-pull on first login). */
+export function isLibraryEmpty(): boolean {
+  return (
+    Object.keys(store.cardOverrides).length === 0 &&
+    (store.newCards?.length ?? 0) === 0 &&
+    Object.keys(store.glyphOverrides).length === 0 &&
+    packStore.packs.length === 0 &&
+    packStore.active.length === 0
+  );
+}
+
+/** Replace the library from a cloud snapshot and mirror to localStorage. Does NOT notify.
+ *  Accepts loosely-typed JSON (it comes from the cloud); missing fields default to empty. */
+export function importUserLibrary(lib: { homebrew?: Partial<Homebrew>; packs?: Partial<PacksState> } | null | undefined) {
+  const hb = lib?.homebrew;
+  store = {
+    cardOverrides: hb?.cardOverrides ?? {},
+    newCards: hb?.newCards ?? [],
+    glyphOverrides: hb?.glyphOverrides ?? {},
+  };
+  packStore = { packs: lib?.packs?.packs ?? [], active: lib?.packs?.active ?? [] };
+  try {
+    localStorage.setItem(KEY, JSON.stringify(store));
+    localStorage.setItem(PACK_KEY, JSON.stringify(packStore));
+  } catch { /* ignore */ }
+  version++;
+}
+
+/** Reload module state from localStorage (e.g. after another tab wrote it). Does NOT notify. */
+export function rehydrate() {
+  store = load();
+  packStore = loadPacks();
+  version++;
+}
+
 /** Import a pack from exported JSON; unknown cards are registered into homebrew so they persist. */
 export function importPack(json: string): string | null {
   try {

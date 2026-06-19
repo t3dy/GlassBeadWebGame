@@ -8,11 +8,16 @@ import { getCard, getGlyph, editCard, editGlyph, createCard, corpusCardIds,
   registerDlc, isBuiltinPack, type Pack } from './engine/content';
 import { PORTALS, PORTAL_HUB, PORTAL_MAP } from './data/portals';
 import { localStore } from './store/dataStore';
+import { pushGame } from './store/sync';
 import { activateCorpus, type CorpusActivation } from './data/corpus';
-import { SOCIETAS_MAGICA_PACKS } from './data/dlc/societasMagica';
+import { ALL_DLC_PACKS } from './data/dlc';
+import { connectedCards } from './engine/connections';
+import { useAuth } from './auth/AuthContext';
+import { NavBar } from './ui/NavBar';
+import { SavesModal } from './ui/SavesModal';
 
-// Register the built-in DLC (e.g. the Societas Magica packs) once, at module load.
-registerDlc(SOCIETAS_MAGICA_PACKS);
+// Register all built-in DLC packs once, at module load.
+registerDlc(ALL_DLC_PACKS);
 
 type Armed = { kind: 'card' | 'glyph' | 'meeple'; id: string } | null;
 type PanelView = { type: 'glyph' | 'occupation' | 'bead'; id: string } | null;
@@ -25,15 +30,27 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [packsOpen, setPacksOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
+  const [savesOpen, setSavesOpen] = useState(false);
   const [, setHbv] = useState(0); // bump to re-render after homebrew edits
   const [corpus, setCorpus] = useState<CorpusActivation | null>(null);
   const drag = useRef<Armed>(null);
   const bump = () => setHbv((v) => v + 1);
+  const { cloudGame, clearCloudGame } = useAuth();
 
-  useEffect(() => { if (state) localStore.save(state); }, [state]);
+  // Persist locally AND mirror the live board to the cloud (debounced; no-op when guest).
+  useEffect(() => { if (state) { localStore.save(state); pushGame(state); } }, [state]);
+  // On sign-in, the user's cloud library is restored into content.ts and their current
+  // board arrives here — apply it and re-render so homebrew cards/packs reflect the cloud.
+  useEffect(() => { if (cloudGame) { setState(cloudGame); clearCloudGame(); bump(); } }, [cloudGame, clearCloudGame]);
   // Light up the unified-ontology "crystal" (lazy; the game runs fully without it).
   useEffect(() => { activateCorpus().then((a) => { setCorpus(a); bump(); }); }, []);
-  if (!state) return <Setup onStart={(n) => setState(createGame(n))} />;
+  if (!state) return (
+    <div className="app">
+      <NavBar onOpenSaves={() => setSavesOpen(true)} />
+      <Setup onStart={(n) => setState(createGame(n))} />
+      {savesOpen && <SavesModal current={null} onLoad={setState} onClose={() => setSavesOpen(false)} />}
+    </div>
+  );
 
   const active = state.players[state.active];
   const dispatch = (m: Move) => setState((s) => (s ? applyMove(s, m) : s));
@@ -43,7 +60,7 @@ export default function App() {
     if (!payload || state!.phase !== 'play') return;
     const bead = state!.beads[cell];
     if (payload.kind === 'glyph' && bead) dispatch({ kind: 'applyGlyph', glyphId: payload.id, cell });
-    else if (payload.kind === 'card' && !bead && !state!.meeples[cell]) { dispatch({ kind: 'infuse', cardId: payload.id, cell }); setArmed(null); }
+    else if (payload.kind === 'card' && !bead && !state!.meeples[cell]) { dispatch({ kind: 'infuse', cardId: payload.id, cell }); setArmed(null); setPanel({ type: 'bead', id: cell }); }
     else if (payload.kind === 'meeple' && !bead && !state!.meeples[cell]) dispatch({ kind: 'placeMeeple', occId: payload.id, cell });
   }
   function handleCell(cell: CellId) {
@@ -70,6 +87,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <NavBar onOpenSaves={() => setSavesOpen(true)} />
       <header className="topbar">
         <h1>The Glass Bead Game</h1>
         <a className="hub-link" href={PORTAL_HUB.url} target="_blank" rel="noopener noreferrer">part of the {PORTAL_HUB.title} ↗</a>
@@ -105,7 +123,7 @@ export default function App() {
             onDropCell={(cell) => { place(drag.current, cell); drag.current = null; }} />
         </section>
         <aside className="side">
-          <InfoPanel state={state} view={panel} onEdit={bump} />
+          <InfoPanel state={state} view={panel} onEdit={bump} onDrawConnected={giveToHand} />
           <Log lines={state.log} />
         </aside>
       </main>
@@ -164,6 +182,7 @@ export default function App() {
 
       {creating && <NewCardModal onClose={() => setCreating(false)} onCreate={(c) => { createCard(c); giveToHand(c.id); bump(); setCreating(false); }} />}
       {packsOpen && <PacksModal corpusOk={!!corpus?.ok} onClose={() => { setPacksOpen(false); bump(); }} />}
+      {savesOpen && <SavesModal current={state} onLoad={setState} onClose={() => setSavesOpen(false)} />}
       {drawOpen && <DrawModal corpusOk={!!corpus?.ok}
         onDrawRandom={(ids, replace) => drawInto(ids, state.handSize, replace)}
         onPick={(id) => giveToHand(id)} onClose={() => setDrawOpen(false)} />}
@@ -243,7 +262,7 @@ function BeadGlyph({ state, cell }: { state: GameState; cell: CellId }) {
   );
 }
 
-function InfoPanel({ state, view, onEdit }: { state: GameState; view: PanelView; onEdit: () => void }) {
+function InfoPanel({ state, view, onEdit, onDrawConnected }: { state: GameState; view: PanelView; onEdit: () => void; onDrawConnected: (id: string) => void }) {
   const [editing, setEditing] = useState(false);
   useEffect(() => setEditing(false), [view?.type, view?.id]);
 
@@ -291,6 +310,7 @@ function InfoPanel({ state, view, onEdit }: { state: GameState; view: PanelView;
         ) : <p className="muted">An uninfused bead.</p>}
         <h3>Attributes (glyphs)</h3>
         <p>{bead.glyphIds.length ? bead.glyphIds.map((g) => `${getGlyph(g)?.glyph} ${getGlyph(g)?.label}`).join(' · ') : '—'}</p>
+        {card && <Connected cardId={card.id} onDraw={onDrawConnected} />}
       </div>
     );
   }
@@ -306,6 +326,22 @@ function InfoPanel({ state, view, onEdit }: { state: GameState; view: PanelView;
 
 const PenBtn = ({ onClick }: { onClick: () => void }) => <button className="penbtn" title="Edit (Print Shop)" onClick={onClick}>✎</button>;
 const CopyBtn = ({ t }: { t: string }) => <button className="copybtn" title="Copy" onClick={() => copy(t)}>⧉</button>;
+
+function Connected({ cardId, onDraw }: { cardId: string; onDraw: (id: string) => void }) {
+  const links = connectedCards(cardId, 8);
+  if (!links.length) return null;
+  return (
+    <div className="connected">
+      <h3>Draw a connected card</h3>
+      {links.map((l) => (
+        <button key={l.id} className="conncard" title={l.reason} onClick={() => onDraw(l.id)}>
+          <span className="conn-name">＋ {l.name}</span>
+          <span className="conn-reason">{l.reason}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function CardEditor({ card, onSave, onCancel }: { card: CardDef; onSave: (p: Partial<CardDef>) => void; onCancel: () => void }) {
   const [name, setName] = useState(card.name);

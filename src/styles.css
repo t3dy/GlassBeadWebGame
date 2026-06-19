@@ -44,6 +44,24 @@ body {
 }
 .btn:hover { background: var(--stone-green-deep); }
 .btn.gold { background: var(--brocade-gold); color: #3a2e00; border-color: var(--brass); }
+.btn.sm { font-size: 12px; padding: 4px 9px; }
+
+/* ── top navigation bar (account + sync + saves) ── */
+.navbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; margin-bottom: 4px;
+  background: var(--stone-green-deep); color: var(--parchment);
+  border-bottom: 2px solid var(--brass);
+}
+.navbar-brand { font-weight: 700; letter-spacing: 0.4px; }
+.navbar-spacer { flex: 1; }
+.navbar-user { font-size: 13px; opacity: 0.92; }
+.navbar .btn.ghost { color: var(--parchment); border-color: var(--brass); }
+.navbar .btn.ghost:hover { background: rgba(255,255,255,0.12); }
+.sync-chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.14); }
+.sync-syncing { background: rgba(200,162,74,0.35); }
+.sync-saved { background: rgba(80,180,80,0.35); }
+.sync-error { background: rgba(200,40,40,0.45); }
 
 .layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; margin-top: 14px; }
 @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
@@ -232,3 +250,13 @@ body {
 .drawfilters { display: flex; gap: 8px; margin: 6px 0; }
 .drawfilters input { flex: 1; }
 .drawfilters select { font: inherit; font-size: 13px; padding: 6px; border: 1px solid var(--brass); border-radius: 6px; background: #fff; }
+
+/* Connected-card draws */
+.connected { margin-top: 10px; }
+.connected h3 { color: var(--violet-robe); }
+.conncard { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+  background: rgba(148,0,211,0.06); border: 1px solid var(--violet-robe); border-radius: 7px;
+  padding: 5px 8px; margin-bottom: 5px; }
+.conncard:hover { background: rgba(148,0,211,0.14); }
+.conn-name { display: block; font-size: 13px; font-weight: 600; color: var(--stone-green-deep); }
+.conn-reason { display: block; font-size: 11px; color: #5a6a55; }
