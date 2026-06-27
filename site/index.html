@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Crystal Atlas · Glass Bead Game</title>
+  <meta name="description" content="A relational browser over the Glass Bead Game's card corpus — figures, texts, concepts, places, and the influence web that binds them." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="mast-inner">
+      <h1>The Crystal Atlas</h1>
+      <p class="subtitle">A relational browser over the Glass Bead Game's grounded corpus — every bead a card, every line an influence. <span class="quiet">“an ever-growing crystal of insights.”</span></p>
+      <p class="counts" id="counts"></p>
+    </div>
+  </header>
+
+  <nav class="toolbar">
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search names, text, sources…" autocomplete="off" />
+    </div>
+    <div class="view-toggle" role="tablist" aria-label="View">
+      <button class="vt active" data-view="gallery" role="tab">▦ Gallery</button>
+      <button class="vt" data-view="web" role="tab">✦ Connection Web</button>
+    </div>
+  </nav>
+
+  <section class="filters" id="filters">
+    <div class="filter-group" id="class-filters" aria-label="Filter by kind"></div>
+    <div class="filter-group" id="pack-filters" aria-label="Filter by pack"></div>
+    <div class="filter-group" id="glyph-filters" aria-label="Filter by glyph"></div>
+    <button id="clear-filters" class="clear" hidden>clear filters ✕</button>
+  </section>
+
+  <main>
+    <div id="gallery" class="gallery"></div>
+    <div id="web" class="web" hidden>
+      <svg id="graph" aria-label="Connection web of the corpus"></svg>
+      <p class="web-hint">Drag to explore · click a bead to open it · only connected cards appear here.</p>
+    </div>
+  </main>
+
+  <aside id="detail" class="detail" hidden aria-live="polite"></aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <footer class="foot">
+    <span>Grounded in Hesse · Fost · Leary &amp; RAW, and the curated knowledge portals. Every card cited.</span>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

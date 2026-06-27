@@ -5,6 +5,55 @@
 
 ## Status: **Playable prototype shipped & deployed** (solo + 2-player hot-seat) + **Unified Ontology layer live** + **Accounts & cloud sync (Phase 5/6) — code complete, awaiting Supabase provisioning**
 
+### THE CRYSTAL ATLAS — relational card-browser website (added 2026-06-27)
+A standalone, dependency-free static site under **`site/`** that shows off the cards and is a **relational
+browser** over the corpus. Open `site/index.html` directly, or preview: `npx vite preview --outDir site
+--port 4180` (a `crystal-atlas` config is in `.claude/launch.json`).
+- **`site/index.html` · `style.css` · `app.js`** — Green-Stone gallery of **198 beads** (glyph badges,
+  pack chips, citation); **filters** (search + class + pack + top glyphs); a **detail browser** (each
+  glyph + its sourced meaning, correspondences table, source, portal "Explore the source ↗", and
+  **Connections** = authored *influence* links + thematic *resonance* neighbours) with **click-through
+  navigation + back-stack**; and a **force-directed Connection Web** (86 nodes · 73 edges, class-coloured,
+  hover-highlight). Force layout **pre-warms synchronously** (robust to rAF throttling).
+- **`site/data.js`** is generated — never edit by hand. Regenerate from the live engine data:
+  `GEN_SITE=1 npx vitest run src/site/genData.test.ts` (generator: **`src/site/genData.test.ts`**; pulls
+  ALL_DLC_PACKS + seed deck + `links.ts` + glyph banks → the site can't drift from the engine). An
+  always-on test asserts links resolve + every card glyph renders. `tsconfig.app.json` excludes `src/site`
+  (it uses node builtins); vitest still runs it.
+- **NEW MODE:** `src/game/modes.ts` gained a **Court Patronage** mode (Letters / Laboratory Commission /
+  Courtly Roguelike / Kunstkammer genres) pairing with the Patrons DLC — **rides the other window's
+  modes.ts commit** (left uncommitted by me).
+- **Verified:** `npm test` 51/1-skipped; build clean; site verified live (Rudolf II→Maier/Dee/Prague
+  influence; click-through + back; web lays out spread). Screenshots blocked by tab-throttling (env, not a bug).
+- **NEXT:** deploy the Atlas (Pages target or `/atlas`) + CI regen of `data.js`; web-view keyboard a11y;
+  lazy-load the 2,470-entity corpus into the Atlas; cross-link Atlas↔in-game inspector.
+
+### PATRONS DLC — medieval & Renaissance patronage assets (added 2026-06-27)
+Turns the new **patronage research database** (`docs/research/` — sourcebook + `patronage_catalog.sql`/
+`.sqlite`) into playable **assets**, parallel to the other window's mode→genre *mechanic* work.
+- **`src/data/dlc/patrons.ts`** — **30 grounded patron figure cards** (`patron:<slug>`; al-Ma'mun →
+  Rudolf II) in the **5 packs** the sourcebook names: `patron:women` · `patron:astronomy` ·
+  `patron:manuscript` · `patron:alchemy` · `patron:magnificence`. Patrons recur across packs as the
+  same const (stable ids). Glyphs/correspondences per the sourcebook's attribution table; every card
+  cited. (Authored by **bead-smith**; integrated here.)
+- **Wired in:** `src/data/dlc/index.ts` (`...PATRON_PACKS`). **~24 influence links** added to
+  `links.ts` — patrons → who/what they funded (Cosimo→`sm:ficino`, Rudolf II→`ema:maier`/`sm:dee`/
+  `sm:l-prague`, Alfonso X→`sm:l-toledo`, Elizabeth I→`sm:dee`) + patron↔patron dynasties (Medici house,
+  Roman papacy, Valois–Burgundy brothers, Timurid Herat, Habsburg). So patrons join the **draw-connected**
+  web. Tests `patrons.test.ts` (7). **`npm test` 50/50; build clean.**
+- **Coordination:** stayed out of `modes.ts` / `modes.test.ts` / `App.tsx` (a second window was live-
+  editing them for the mode→genre layer, review 022). Committed nothing — left the shared worktree's
+  in-flight files untouched; my new files are uncommitted and ready.
+- **WITHHELD (design captured, code not written to avoid the live `modes.ts` edit):** four **patronage
+  genre-modes** matching the sourcebook's Genre Hooks — **Court Patronage (letters)** / visual-novel of
+  favour & dependency; **Laboratory Commission** / lab-business-sim; **Courtly Roguelike** / procedural
+  patronage dungeon; **The Kunstkammer** / cabinet of wonders. Each = a move budget + 5–6 patron-voiced
+  interaction prompts (commission, dedication, scandal, deadline, agent, fraud-check). Hand these to
+  whoever next owns `modes.ts`; they slot into the new mode→genre structure and pair with the patron cards.
+- **NEXT:** asymmetric-sponsor rule (one favoured glyph + one forbidden risk per patron → *simulative*
+  thematic action, review 023); meeple+place hook now has real patron cards to attach (alchemist on
+  Prague Castle → Rudolf II); link patrons to their named works/artists as those enter the corpus.
+
 ### ACCOUNTS + CLOUD PERSISTENCE + NAV SHELL (added 2026-06-18)
 Full login + auto-sync layer, **local-first / graceful guest mode** (runs with no env vars). Brings
 forward [DEPLOYMENT](docs/DEPLOYMENT.md) Phase 5/6 backend without blocking solo play.
