@@ -8,9 +8,14 @@ A **game mode** reframes the same board (beads · glyphs · adjacency relations)
 3. supplies the system's **customized interaction prompts** — when two beads sit adjacent, the system
    speaks *in the mode's voice*, asking a mode-appropriate question about their synthesis.
 
+Modes subdivide by **genre** — a second axis that refines the prompts (Novel → Science Fiction;
+Bong Session → Philosophical; Video Game → Roguelike). A genre supplies its own prompt set that
+overrides the mode's base prompts; "General" keeps the mode's own voice.
+
 This is distinct from [BOARD_MODES](BOARD_MODES.md) (divinatory *layouts*). Game modes keep the Free
 Grid and change the **register of the prompting**. Data + prompt engine: `src/game/modes.ts`
-(pure, tested); UI: a mode picker at setup, a mode bar (moves left), and the prompt under the readout.
+(pure, tested); UI: a mode picker + genre chips at setup, a mode bar (mode · genre · moves left), and
+the prompt under the readout.
 
 ## The example modes (shipped)
 
@@ -25,10 +30,30 @@ Grid and change the **register of the prompting**. Data + prompt engine: `src/ga
 | **Scholarly Research Article** | academic argument | 18 | advance the argument |
 | **Withering Film Critique** | caustic criticism | 10 | land a barb |
 | **Dorm-Room Bong-Hit Bull Session** | free-associative riffing | 8 | take a hit & riff |
+| **Video Game** | collaborative game design | 16 | design a system |
 
 Each mode carries an **invocation** (its opening voice) and a set of **prompt templates** with slots
-`{a}`, `{b}` (the two beads' names) and `{op}` (the relation). `composeModePrompt(modeId, a, b, op)`
-fills a template, chosen by a stable hash of the pairing (same pairing → same prompt within a mode).
+`{a}`, `{b}` (the two beads' names) and `{op}` (the relation). `composeModePrompt(modeId, a, b, op,
+genreId?)` fills a template, chosen by a stable hash of the pairing (same pairing+genre → same prompt).
+
+## Genres (a few per mode)
+
+| Mode | Example genres |
+|---|---|
+| The Magister's Game | Counterpoint of Opposites · The Fugue · The Ascent · Maybe Logic |
+| The Novel | Historical · Science Fiction · Gothic · Hardboiled Noir · Magical Realism |
+| Short Story | Literary · Horror · Fable · Flash Fiction |
+| Poem | Sonnet · Haiku · Beat/Howl · Hymn/Psalm |
+| Painting | Renaissance Allegory · Surrealism · Abstract · Symbolist |
+| Biography | Hagiography · Tell-All · Intellectual Biography · Tragic Arc |
+| Scholarly Article | Analytic Philosophy · Critical Theory · History of Science · Close Reading |
+| Withering Film Critique | Auteurist · Ideological · Camp · Formalist |
+| Bong Session | Philosophical · Conspiracy · Cosmic/Psychedelic · Pop-Culture Deep Dive |
+| Video Game | Roguelike · Visual Novel · Open-World RPG · Soulslike · Puzzle Box |
+
+Each genre carries its own prompt copy. Example — *The Green Lion* beside *Maybe Logic* under
+**Video Game → Roguelike**: "Make The Green Lion a procedurally-placed reward and Maybe Logic the
+risk that guards it. Is the gamble fair?" Add a genre by appending to a mode's `genres` array.
 
 ## How the customized prompt is handled
 

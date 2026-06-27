@@ -1,16 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { MODES, MODE_MAP, composeModePrompt, DEFAULT_MODE_ID } from './modes';
+import { MODES, MODE_MAP, composeModePrompt, DEFAULT_MODE_ID, genresOf } from './modes';
 
 describe('game modes', () => {
-  it('ships the named collaborative modes with move budgets and prompts', () => {
+  it('ships the named collaborative modes (incl. Video Game) with budgets, prompts, and genres', () => {
     const ids = MODES.map((m) => m.id);
-    for (const id of ['magister', 'novel', 'short-story', 'poem', 'painting', 'biography', 'article', 'film-critique', 'bong-session'])
+    for (const id of ['magister', 'novel', 'short-story', 'poem', 'painting', 'biography', 'article', 'film-critique', 'bong-session', 'video-game'])
       expect(ids).toContain(id);
     for (const m of MODES) {
       expect(m.movesPerPlayer).toBeGreaterThan(0);
       expect(m.prompts.length).toBeGreaterThan(0);
       expect(m.invocation.length).toBeGreaterThan(0);
+      expect(m.genres.length).toBeGreaterThan(0); // every mode subdivides by genre
+      for (const ge of m.genres) expect(ge.prompts.length).toBeGreaterThan(0);
     }
+  });
+
+  it('subdivides by genre and the genre prompts override the mode base prompts', () => {
+    expect(genresOf('video-game').map((x) => x.id)).toContain('roguelike');
+    expect(genresOf('bong-session').map((x) => x.id)).toContain('philosophical');
+    expect(genresOf('novel').map((x) => x.id)).toContain('scifi');
+    const base = composeModePrompt('novel', 'Prague', 'John Dee');
+    const scifi = composeModePrompt('novel', 'Prague', 'John Dee', 'meets', 'scifi');
+    expect(scifi).toContain('Prague');
+    expect(scifi).not.toBe(base); // genre changes the voice
   });
 
   it('composes a customized interaction prompt, filling the bead names', () => {
