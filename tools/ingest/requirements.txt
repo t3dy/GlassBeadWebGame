@@ -1,0 +1,6 @@
+# relations_miner.py dependencies. Both are OPTIONAL — the miner degrades gracefully without them
+# (graph-only ranking, no latent/dupe mining). Install for the full pipeline:
+#   python -m pip install -r requirements.txt
+networkx>=3.0
+sentence-transformers>=2.2
+numpy>=1.24
